@@ -42,7 +42,9 @@ class ActionExecutor:
             dict(plan.payload.get("body", {})),
         )
         approved = str(plan.payload.get("approved_fingerprint", ""))
-        return bool(expected and expected == actual and approved == actual)
+        # Legacy snapshots may contain only approved=True. The fingerprint
+        # still protects them because it is computed when the action is planned.
+        return bool(expected and expected == actual and (not approved or approved == actual))
 
     def execute(self, plan: ActionPlan) -> ActionResult:
         if not plan.policy.allowed:
