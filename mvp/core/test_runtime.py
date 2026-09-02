@@ -1,3 +1,5 @@
+from connectors.file_connector import FileConnector
+from connectors.http_json_connector import HttpJsonConnector
 from core.action_executor import ActionExecutor
 from core.orchestrator import MissionOrchestrator
 from core.runtime import MissionRuntime, build_mission_orchestrator, build_runtime
@@ -12,6 +14,18 @@ def test_runtime_composes_one_shared_dependency_graph():
     assert isinstance(runtime.verifier, ActionVerifier)
     assert runtime.orchestrator._action_executor is runtime.action_executor
     assert runtime.orchestrator._verifier is runtime.verifier
+    assert isinstance(runtime.registry.connectors["file"], FileConnector)
+    assert runtime.registry.executors["action"] is runtime.action_executor
+    assert runtime.registry.verifiers["action"] is runtime.verifier
+    assert "http_json" not in runtime.registry.connectors
+
+
+def test_runtime_registers_http_json_when_hosts_are_configured(monkeypatch):
+    monkeypatch.setenv("NEXUS_HTTP_ALLOWED_HOSTS", "api.example.test, reports.example.test ")
+    runtime = build_runtime()
+
+    assert isinstance(runtime.registry.connectors["http_json"], HttpJsonConnector)
+    assert runtime.registry.describe()["connectors"] == ["file", "http_json"]
 
 
 def test_legacy_factory_still_returns_orchestrator():
