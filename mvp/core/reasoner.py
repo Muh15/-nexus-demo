@@ -40,42 +40,79 @@ def _evidence_score(items: list[Evidence]) -> int:
     return round(sum(max(0, min(100, item.confidence)) for item in items) / len(items))
 
 
+def _goal_profile(goal: str) -> str:
+    text = goal.lower()
+    if any(token in text for token in ("cost", "تكلفة", "مصروف", "مصاريف", "خفض", "خفض التكاليف")):
+        return "cost"
+    if any(token in text for token in ("revenue", "sales", "ربح", "إيراد", "مبيعات", "نمو المبيعات")):
+        return "revenue"
+    if any(token in text for token in ("risk", "compliance", "مخاطر", "مخاطرة", "امتثال", "تنظيم")):
+        return "risk"
+    if any(token in text for token in ("customer", "retention", "تجربة العملاء", "العملاء", "احتفاظ")):
+        return "customer"
+    if any(token in text for token in ("supplier", "vendor", "مورد", "موردين")):
+        return "supplier"
+    return "general"
+
+
 def reason_from_evidence(goal: str, constraints: list[str], context: BusinessContext) -> EvidenceDecision:
-    """Produce a conservative decision whose confidence is grounded in collected evidence."""
+    """Produce a conservative, goal-profiled decision grounded in collected evidence."""
     evidence = list(context.evidence.values())
     score = _evidence_score(evidence)
     ids = [item.id for item in evidence]
-    cost_goal = any(token in goal.lower() for token in ("cost", "تكلفة", "مصروف", "مصاريف", "خفض"))
+    rationale = [f"{item.claim}: {item.value}" for item in evidence[:5]] or ["لا توجد أدلة كافية لاتخاذ قرار قوي."]
+    confidence = min(95, max(35, score if evidence else 35))
+    profile = _goal_profile(goal)
 
-    if cost_goal:
-        rationale = []
-        for item in evidence[:5]:
-            rationale.append(f"{item.claim}: {item.value}")
-        if not rationale:
-            rationale.append("لا توجد أدلة كافية مرتبطة بالهدف.")
-        confidence = min(95, max(35, score if evidence else 35))
-        return EvidenceDecision(
-            title="قرار مبني على الأدلة الحالية",
-            summary="تم ربط الهدف بالأدلة التي جُمعت وتحديد التدخل الأقل مخاطرة المتاح حاليًا.",
-            priority="high" if confidence >= 75 else "medium",
-            confidence=confidence,
-            rationale=rationale,
-            recommended_action="إعداد مسودة تفاوض ومراجعتها قبل أي التزام مالي أو تعاقدي.",
-            expected_impact="تقليل التكلفة المحتملة مع إبقاء القرار تحت اعتماد بشري.",
-            evidence_ids=ids,
-            evidence_count=len(evidence),
-            evidence_confidence=score,
-        )
+    profiles = {
+        "cost": (
+            "قرار خفض التكلفة مبني على الأدلة",
+            "تم ربط هدف خفض التكلفة بالأدلة الحالية وتحديد تدخل منخفض المخاطر قبل أي التزام.",
+            "إعداد مسودة تفاوض ومراجعتها قبل أي التزام مالي أو تعاقدي.",
+            "تقليل التكلفة المحتملة مع إبقاء القرار تحت اعتماد بشري.",
+        ),
+        "revenue": (
+            "قرار نمو إيرادات مبني على الأدلة",
+            "تم ربط هدف النمو التجاري بالإشارات الحالية وتحديد تجربة قابلة للقياس قبل التوسع.",
+            "إعداد خطة تجربة مبيعات محدودة ومراجعتها قبل إطلاقها على نطاق واسع.",
+            "رفع الإيرادات المحتملة مع حصر المخاطرة في تجربة قابلة للقياس.",
+        ),
+        "risk": (
+            "قرار خفض المخاطر مبني على الأدلة",
+            "تم تحديد إشارات المخاطر وربطها بالهدف مع إبقاء التدخل ضمن حدود الاعتماد البشري.",
+            "إعداد خطة معالجة للمخاطر وتحديد مالك وموعد مراجعة قبل تنفيذ أي تغيير حساس.",
+            "تقليل التعرض للمخاطر وتحسين قابلية المتابعة والتحقق.",
+        ),
+        "customer": (
+            "قرار تحسين العملاء مبني على الأدلة",
+            "تم ربط هدف العملاء بالإشارات المتاحة واختيار تدخل صغير قابل للقياس قبل التوسع.",
+            "إعداد تجربة تحسين لخدمة العملاء ومراجعة أثرها قبل تعميمها.",
+            "تحسين تجربة العملاء مع قياس النتيجة قبل التوسع.",
+        ),
+        "supplier": (
+            "قرار الموردين مبني على الأدلة",
+            "تم ربط هدف الموردين بالأدلة الحالية وتحديد خطوة تفاوض أو مراجعة قابلة للتحقق.",
+            "إعداد مراجعة للمورد وشروطه ومسودة تفاوض قبل أي تغيير تعاقدي.",
+            "تحسين شروط المورد مع إبقاء الالتزام التعاقدي تحت اعتماد بشري.",
+        ),
+        "general": (
+            "قرار أولي مبني على السياق المتاح",
+            "تم تحليل الأدلة المتاحة دون تجاوز ما تثبته البيانات.",
+            "مراجعة التدخل المقترح واعتماد خطوة قابلة للقياس.",
+            "تحويل الأدلة الحالية إلى إجراء يمكن التحقق من أثره.",
+        ),
+    }
+    title, summary, recommended_action, expected_impact = profiles[profile]
+    priority = "high" if confidence >= 75 and profile != "general" else "medium"
 
-    confidence = min(90, max(35, score if evidence else 35))
     return EvidenceDecision(
-        title="قرار أولي مبني على السياق المتاح",
-        summary="تم تحليل الأدلة المتاحة دون تجاوز ما تثبته البيانات.",
-        priority="medium",
+        title=title,
+        summary=summary,
+        priority=priority,
         confidence=confidence,
-        rationale=[f"{item.claim}: {item.value}" for item in evidence[:5]] or ["لا توجد أدلة كافية لاتخاذ قرار قوي."],
-        recommended_action="مراجعة التدخل المقترح واعتماد خطوة قابلة للقياس.",
-        expected_impact="تحويل الأدلة الحالية إلى إجراء يمكن التحقق من أثره.",
+        rationale=rationale,
+        recommended_action=recommended_action,
+        expected_impact=expected_impact,
         evidence_ids=ids,
         evidence_count=len(evidence),
         evidence_confidence=score,
