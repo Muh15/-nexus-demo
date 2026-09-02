@@ -5,6 +5,7 @@ from .goal_planner import Goal, GoalPlan, GoalProfile, ResearchNeed, build_goal_
 from .impact import ImpactAssessment, assess_change
 from .intelligence_graph import GraphEdge, GraphNode, IntelligenceGraph
 from .mission_intelligence import MissionIntelligence
+from .mission_repository import SQLiteMissionRepository
 from .models import BusinessContext, Entity, Evidence, Relationship
 from .orchestrator import MissionOrchestrator, MissionState, mission_from_snapshot
 from .repository import InMemoryMissionRepository
@@ -22,7 +23,7 @@ __all__ = [
     "ResearchExecutor", "ResearchResult", "context_provider",
     "ActionExecutor", "ActionResult", "draft_email_handler",
     "ActionVerifier", "VerificationResult", "draft_email_verifier",
-    "SQLiteMissionStore",
+    "SQLiteMissionStore", "SQLiteMissionRepository",
     "MissionOrchestrator", "MissionState", "mission_from_snapshot", "InMemoryMissionRepository",
     "MissionRuntime", "build_runtime", "build_mission_orchestrator",
 ]
