@@ -21,12 +21,7 @@ class ActionPolicy:
 
 
 def evaluate_action(action_type: str, *, amount: float | None = None) -> ActionPolicy:
-    """Default-deny policy for future autonomous actions.
-
-    The MVP intentionally permits only reversible, low-impact actions without
-    direct execution. Financial transfers, irreversible changes, and privilege
-    changes are always gated.
-    """
+    """Default-deny policy for future autonomous actions."""
     normalized = action_type.strip().lower()
 
     if normalized in {"draft_email", "create_task", "prepare_report"}:
