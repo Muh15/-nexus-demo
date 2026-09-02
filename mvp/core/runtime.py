@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
+from connectors.business_api_connector import BusinessApiConfig, BusinessApiConnector
 from connectors.file_connector import FileConnector
 from connectors.http_json_connector import HttpJsonConfig, HttpJsonConnector
 
@@ -12,7 +13,7 @@ from .mission_repository import SQLiteMissionRepository
 from .orchestrator import MissionOrchestrator
 from .reasoner import reason_from_evidence
 from .registry import ComponentRegistry
-from .research_executor import ResearchExecutor, context_provider, http_json_provider
+from .research_executor import ResearchExecutor, business_api_provider, context_provider, http_json_provider
 from .sqlite_store import SQLiteMissionStore
 from .verifier import ActionVerifier, draft_email_verifier
 
@@ -44,6 +45,33 @@ def _build_connector_registry() -> ComponentRegistry:
                 )
             ),
         )
+
+    # Business systems are opt-in. Each connector is enabled only when its
+    # base URL is explicitly configured and the hostname is present in the
+    # same allow-list used for outbound HTTP policy.
+    business_specs = {
+        "erp": ("NEXUS_ERP_URL", "NEXUS_ERP_TOKEN_ENV", "NEXUS_ERP_ENDPOINT"),
+        "crm": ("NEXUS_CRM_URL", "NEXUS_CRM_TOKEN_ENV", "NEXUS_CRM_ENDPOINT"),
+        "supplier": ("NEXUS_SUPPLIER_URL", "NEXUS_SUPPLIER_TOKEN_ENV", "NEXUS_SUPPLIER_ENDPOINT"),
+    }
+    for name, (url_env, token_env_env, _) in business_specs.items():
+        base_url = os.getenv(url_env, "").strip()
+        if not base_url:
+            continue
+        token_env = os.getenv(token_env_env, "").strip() or None
+        registry.add_connector(
+            name,
+            BusinessApiConnector(
+                BusinessApiConfig(
+                    name=name,
+                    base_url=base_url,
+                    allowed_hosts=allowed_hosts,
+                    token_env=token_env,
+                    timeout_seconds=float(os.getenv("NEXUS_BUSINESS_TIMEOUT_SECONDS", "10")),
+                    max_response_bytes=int(os.getenv("NEXUS_BUSINESS_MAX_BYTES", "2000000")),
+                )
+            ),
+        )
     return registry
 
 
@@ -61,6 +89,15 @@ def build_runtime() -> MissionRuntime:
     }.items():
         research.register(connector, context_provider(connector, source, confidence=82))
 
+    # Replace the deterministic provider with a real, scoped business API when
+    # the relevant URL + endpoint are configured. Planner contracts stay stable.
+    for name in ("erp", "crm", "supplier"):
+        connector = registry.connectors.get(name)
+        endpoint_env = f"NEXUS_{name.upper()}_ENDPOINT"
+        endpoint = os.getenv(endpoint_env, "").strip()
+        if isinstance(connector, BusinessApiConnector) and endpoint:
+            research._providers[name] = business_api_provider(connector, endpoint, confidence=90)
+
     # When an allow-listed HTTP JSON endpoint is explicitly configured, use it
     # as the real transport for web research. Without the URL, the deterministic
     # local provider remains active so tests and demos stay offline and stable.
@@ -75,8 +112,6 @@ def build_runtime() -> MissionRuntime:
             "web_http",
             http_json_provider(http_connector, http_research_url, confidence=88),
         )
-        # Keep the planner contract stable: the web domain still asks for
-        # connector="web", but its provider can now be backed by real HTTP.
         research._providers["web"] = http_json_provider(http_connector, http_research_url, confidence=88)
 
     actions = ActionExecutor({"draft_email": draft_email_handler})
