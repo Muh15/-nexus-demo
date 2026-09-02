@@ -1,7 +1,9 @@
 from io import BytesIO
 
 from connectors.file_connector import FileConnector
+from core.context_builder import build_context
 from core.models import BusinessContext, Entity, Evidence, Relationship
+from core.planner import plan_action
 from core.policy import ActionRisk, evaluate_action
 from main import reason, sample_signals
 
@@ -59,8 +61,26 @@ def test_business_context_keeps_relationship_evidence():
     assert snapshot["relationships"][0]["evidence_ids"] == ["ev-1"]
 
 
+def test_context_builder_links_supplier_to_contract():
+    context = build_context(
+        [{"supplier": "ABC", "contract": "ABC-2026", "monthly_spend": 420000}],
+        source="xlsx",
+    )
+    assert "supplier:abc" in context.entities
+    assert "contract:abc-2026" in context.entities
+    assert context.relationships[0].relation == "governed_by"
+    assert context.entities["supplier:abc"].attributes["amounts"] == [420000]
+
+
 def test_action_policy_is_default_deny_for_critical_actions():
     policy = evaluate_action("transfer_money", amount=1000)
     assert policy.risk is ActionRisk.CRITICAL
     assert policy.allowed is False
     assert policy.requires_approval is True
+
+
+def test_planner_keeps_action_separate_from_decision():
+    plan = plan_action("ابدأ التفاوض مع المورد", target="ABC Industrial")
+    assert plan.action_type == "draft_email"
+    assert plan.policy.allowed is True
+    assert plan.payload["approval_required"] is True
