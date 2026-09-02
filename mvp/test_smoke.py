@@ -1,7 +1,9 @@
 from io import BytesIO
 
 from connectors.file_connector import FileConnector
+from core.change_detector import detect_change, detect_record_changes
 from core.context_builder import build_context
+from core.memory import MemoryStore
 from core.models import BusinessContext, Entity, Evidence, Relationship
 from core.planner import plan_action
 from core.policy import ActionRisk, evaluate_action
@@ -84,3 +86,38 @@ def test_planner_keeps_action_separate_from_decision():
     assert plan.action_type == "draft_email"
     assert plan.policy.allowed is True
     assert plan.payload["approval_required"] is True
+
+
+def test_memory_is_temporal_and_tenant_isolated():
+    memory = MemoryStore()
+    first = memory.remember("tenant-a", "supplier:abc:price", 100, source="erp")
+    second = memory.remember("tenant-a", "supplier:abc:price", 108, source="erp")
+    memory.remember("tenant-b", "supplier:abc:price", 999, source="erp")
+
+    assert memory.latest("tenant-a", "supplier:abc:price") is second
+    assert [item.value for item in memory.history("tenant-a", "supplier:abc:price")] == [100, 108]
+    assert memory.snapshot("tenant-b")["facts"]["supplier:abc:price"]["value"] == 999
+    assert first.tenant_id == "tenant-a"
+
+
+def test_change_detector_identifies_new_updated_and_unchanged():
+    memory = MemoryStore()
+    created = detect_change(memory, "tenant-a", "contract:abc:price", 100, source="erp")
+    same = detect_change(memory, "tenant-a", "contract:abc:price", 100, source="erp")
+    updated = detect_change(memory, "tenant-a", "contract:abc:price", 112, source="erp")
+
+    assert created.kind == "new"
+    assert same.kind == "unchanged"
+    assert updated.kind == "updated"
+    assert updated.previous == 100
+    assert updated.current == 112
+
+
+def test_record_change_detection_uses_deterministic_identity():
+    memory = MemoryStore()
+    rows = [{"supplier": "ABC", "monthly_spend": 420000, "status": "active"}]
+    first = detect_record_changes(memory, "tenant-a", rows, source="xlsx")
+    second = detect_record_changes(memory, "tenant-a", rows, source="xlsx")
+
+    assert any(item.kind == "new" for item in first)
+    assert all(item.kind == "unchanged" for item in second)
