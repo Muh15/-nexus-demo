@@ -12,6 +12,7 @@ from core.models import BusinessContext, Entity, Evidence, Relationship
 from core.orchestrator import MissionOrchestrator
 from core.planner import plan_action
 from core.policy import ActionRisk, evaluate_action
+from core.research_executor import ResearchExecutor, context_provider
 from core.research_planner import build_research_plan
 from main import reason, sample_signals
 
@@ -211,7 +212,23 @@ def test_adaptive_research_planner_finds_missing_domains():
     assert research.tasks == sorted(research.tasks, key=lambda item: (-item.priority, item.domain))
 
 
-def test_orchestrator_keeps_intelligence_as_replaceable_component():
+def test_research_executor_collects_evidence_through_replaceable_provider():
+    context = build_context([{"supplier": "ABC", "monthly_spend": 420000}], source="erp")
+    goal_plan = build_goal_plan(parse_goal("Reduce operating cost by 10% within 90 days"))
+    plan = build_research_plan(goal_plan, context)
+    executor = ResearchExecutor()
+    executor.register("contract", context_provider("contract", "contract_api"))
+
+    plan.tasks = [task for task in plan.tasks if task.domain == "contracts"]
+    results = executor.execute(plan, context)
+
+    assert len(results) == 1
+    assert results[0].status == "completed"
+    assert results[0].evidence
+    assert results[0].evidence[0].source == "contract_api"
+
+
+def test_orchestrator_research_stage_is_explicit_and_replaceable():
     def fake_reasoner(goal, constraints, context):
         return {
             "title": "قرار تجريبي",
@@ -219,19 +236,25 @@ def test_orchestrator_keeps_intelligence_as_replaceable_component():
             "confidence": 90,
         }
 
-    orchestrator = MissionOrchestrator(fake_reasoner)
+    executor = ResearchExecutor({"contract": context_provider("contract", "contract_api")})
+    orchestrator = MissionOrchestrator(fake_reasoner, research_executor=executor)
     mission = orchestrator.create(
         tenant_id="tenant-a",
         goal="Reduce operating cost by 10% within 90 days",
         constraints=["Do not change quality"],
-        records=[{"supplier": "ABC", "contract": "ABC-2026", "monthly_spend": 420000}],
+        records=[{"supplier": "ABC", "monthly_spend": 420000}],
         source="xlsx",
     )
+    orchestrator.research(mission)
+
+    assert mission.stage == "researched"
+    assert mission.research_plan is not None
+    assert mission.research_results
+
     orchestrator.decide(mission)
     orchestrator.plan(mission, target="ABC Industrial")
-
     assert mission.stage == "action_planned"
     assert mission.goal_plan is not None
     assert mission.intelligence_graph is not None
     assert mission.impact_assessments
-    assert mission.research_plan is not None
+    assert mission.action_plan is not None
