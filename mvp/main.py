@@ -22,7 +22,7 @@ from core.verifier import ActionVerifier, draft_email_verifier
 
 app = FastAPI(
     title="NEXUS MVP",
-    version="0.5.1",
+    version="0.6.0",
     description="Goal-driven AI intelligence: Observe → Understand → Research → Reason → Decide → Act → Verify",
 )
 
@@ -163,26 +163,53 @@ def log_event(audit: list[AuditEvent], stage: str, message: str) -> None:
 def _context_from_signals(signals: list[Signal]) -> BusinessContext:
     context = BusinessContext()
     for signal in signals:
-        context.add_evidence(Evidence(id=signal.id, source=signal.source.value, claim=signal.title, value=signal.value, confidence=signal.confidence, metadata={"impact": signal.impact, "kind": "signal"}))
+        context.add_evidence(
+            Evidence(
+                id=signal.id,
+                source=signal.source.value,
+                claim=signal.title,
+                value=signal.value,
+                confidence=signal.confidence,
+                metadata={"impact": signal.impact, "kind": "signal"},
+            )
+        )
     return context
-
-
-def reason(goal: str, constraints: list[str], signals: list[Signal]) -> Decision:
-    decision = reason_from_evidence(goal, constraints, _context_from_signals(signals))
-    return Decision(**decision.as_dict())
 
 
 def _research_executor() -> ResearchExecutor:
     executor = ResearchExecutor()
-    for connector, source in {"file": "file", "supplier": "supplier_connector", "erp": "erp_connector", "contract": "contract_connector", "market": "market_connector", "crm": "crm_connector", "web": "web_connector"}.items():
+    sources = {
+        "file": "file",
+        "supplier": "supplier_connector",
+        "erp": "erp_connector",
+        "contract": "contract_connector",
+        "market": "market_connector",
+        "crm": "crm_connector",
+        "web": "web_connector",
+    }
+    for connector, source in sources.items():
         executor.register(connector, context_provider(connector, source, confidence=82))
     return executor
 
 
 def _run_mission(goal: str, constraints: list[str], signals: list[Signal]):
-    records = [{"supplier": signal.title, "monthly_spend": signal.value, "impact": signal.impact, "source": signal.source.value} for signal in signals]
-    orchestrator = MissionOrchestrator(lambda mission_goal, mission_constraints, context: reason_from_evidence(mission_goal, mission_constraints, context).as_dict(), research_executor=_research_executor())
-    mission = orchestrator.create(tenant_id="demo-tenant", goal=goal, constraints=constraints, records=records, source="api-signals")
+    records = [
+        {"supplier": signal.title, "monthly_spend": signal.value, "impact": signal.impact, "source": signal.source.value}
+        for signal in signals
+    ]
+    orchestrator = MissionOrchestrator(
+        lambda mission_goal, mission_constraints, context: reason_from_evidence(
+            mission_goal, mission_constraints, context
+        ).as_dict(),
+        research_executor=_research_executor(),
+    )
+    mission = orchestrator.create(
+        tenant_id="demo-tenant",
+        goal=goal,
+        constraints=constraints,
+        records=records,
+        source="api-signals",
+    )
     orchestrator.research(mission)
     orchestrator.decide(mission)
     return mission
@@ -208,12 +235,16 @@ def _load_mission(mission_id: str) -> Mission | None:
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "service": "nexus-mvp", "version": "0.5.1"}
+    return {"status": "ok", "service": "nexus-mvp", "version": "0.6.0"}
 
 
 @app.get("/api/context")
 def context() -> dict[str, Any]:
-    return {**SAMPLE_CONTEXT, "ingested_records": len(INGESTED_DATA), "persisted_missions": len(MISSION_STORE.list_ids())}
+    return {
+        **SAMPLE_CONTEXT,
+        "ingested_records": len(INGESTED_DATA),
+        "persisted_missions": len(MISSION_STORE.list_ids()),
+    }
 
 
 @app.post("/api/ingest/file")
@@ -225,7 +256,13 @@ def ingest_file(request: IngestRequest) -> dict[str, Any]:
     except (ValueError, TypeError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     INGESTED_DATA.extend(normalized)
-    return {"status": "ingested", "source": result.source, "metadata": {**result.metadata, "normalized": True}, "records_added": len(normalized), "total_records": len(INGESTED_DATA)}
+    return {
+        "status": "ingested",
+        "source": result.source,
+        "metadata": {**result.metadata, "normalized": True},
+        "records_added": len(normalized),
+        "total_records": len(INGESTED_DATA),
+    }
 
 
 @app.get("/api/ingest")
@@ -241,7 +278,8 @@ def create_mission(request: MissionRequest) -> Mission:
     signals = sample_signals() + signals_from_ingestion()
     log_event(audit, "observe", "تم جمع الإشارات من المصادر الحالية.")
     core_mission = _run_mission(request.goal, request.constraints, signals)
-    log_event(audit, "understand", f"تم بناء السياق وتحديد {len(core_mission.research_plan.pending()) if core_mission.research_plan else 0} فجوات بحث.")
+    pending_count = len(core_mission.research_plan.pending()) if core_mission.research_plan else 0
+    log_event(audit, "understand", f"تم بناء السياق وتحديد {pending_count} فجوات بحث.")
     log_event(audit, "research", "تم تنفيذ خطة البحث وجمع الأدلة المتاحة قبل القرار.")
     decision = Decision(**(core_mission.decision or {}))
     completed = sum(1 for result in core_mission.research_results if result.status == "completed")
@@ -250,7 +288,23 @@ def create_mission(request: MissionRequest) -> Mission:
     research_domains = core_mission.goal_plan.domains() if core_mission.goal_plan else []
     log_event(audit, "reason", "تم تقييم الأدلة والقيود لإنتاج قرار مبني على ما تم جمعه.")
     log_event(audit, "decide", f"القرار جاهز للاعتماد بثقة {decision.confidence}% من {decision.evidence_count} دليل.")
-    mission = Mission(id=mission_id, created_at=utc_now(), status=MissionStatus.AWAITING_APPROVAL, goal=request.goal, constraints=request.constraints, sources_used=sorted(set(s.source for s in signals), key=lambda x: x.value), signals=signals, research=ResearchSummary(domains=research_domains, completed=completed, unavailable=unavailable, evidence_added=evidence_added), decision=decision, audit=audit)
+    mission = Mission(
+        id=mission_id,
+        created_at=utc_now(),
+        status=MissionStatus.AWAITING_APPROVAL,
+        goal=request.goal,
+        constraints=request.constraints,
+        sources_used=sorted(set(s.source for s in signals), key=lambda x: x.value),
+        signals=signals,
+        research=ResearchSummary(
+            domains=research_domains,
+            completed=completed,
+            unavailable=unavailable,
+            evidence_added=evidence_added,
+        ),
+        decision=decision,
+        audit=audit,
+    )
     return _persist_mission(mission)
 
 
@@ -275,6 +329,8 @@ def get_mission(mission_id: str) -> Mission:
 @app.post("/api/missions/{mission_id}/approve", response_model=Mission)
 def approve_mission(mission_id: str) -> Mission:
     mission = get_mission(mission_id)
+    if mission.status == MissionStatus.APPROVED:
+        return mission
     if mission.status != MissionStatus.AWAITING_APPROVAL:
         raise HTTPException(status_code=409, detail="Mission is not awaiting approval")
     action_plan = plan_action(mission.decision.recommended_action, target="ABC Industrial")
@@ -282,7 +338,15 @@ def approve_mission(mission_id: str) -> Mission:
         raise HTTPException(status_code=403, detail=action_plan.policy.reason)
     action_plan.payload["approved"] = True
     mission.status = MissionStatus.APPROVED
-    mission.action = {"type": action_plan.action_type, "status": "approved", "target": action_plan.payload.get("target"), "description": action_plan.description, "risk": action_plan.policy.risk.value, "approval_required": action_plan.policy.requires_approval}
+    mission.action = {
+        "type": action_plan.action_type,
+        "status": "approved",
+        "target": action_plan.payload.get("target"),
+        "description": action_plan.description,
+        "risk": action_plan.policy.risk.value,
+        "approval_required": action_plan.policy.requires_approval,
+        "approved_at": utc_now(),
+    }
     log_event(mission.audit, "approve", "تم اعتماد خطة الإجراء بعد فحص سياسة NEXUS.")
     return _persist_mission(mission)
 
@@ -290,14 +354,27 @@ def approve_mission(mission_id: str) -> Mission:
 @app.post("/api/missions/{mission_id}/execute", response_model=Mission)
 def execute_mission(mission_id: str) -> Mission:
     mission = get_mission(mission_id)
+    if mission.status in {MissionStatus.EXECUTED, MissionStatus.VERIFIED}:
+        return mission
     if mission.status != MissionStatus.APPROVED:
         raise HTTPException(status_code=409, detail="Mission must be approved before execution")
-    action_plan = plan_action(mission.decision.recommended_action, target=(mission.action or {}).get("target"))
+    action_plan = plan_action(
+        mission.decision.recommended_action,
+        target=(mission.action or {}).get("target"),
+    )
     action_plan.payload["approved"] = True
     result = ACTION_EXECUTOR.execute(action_plan)
     if result.status != "completed":
         raise HTTPException(status_code=409, detail=result.message or result.status)
-    mission.action = {**(mission.action or {}), "status": "executed", "output": result.output, "result_message": result.message, "executed_at": utc_now()}
+    execution_id = f"EXE-{uuid4().hex[:12].upper()}"
+    mission.action = {
+        **(mission.action or {}),
+        "status": "executed",
+        "output": result.output,
+        "result_message": result.message,
+        "executed_at": utc_now(),
+        "execution_id": execution_id,
+    }
     mission.status = MissionStatus.EXECUTED
     log_event(mission.audit, "act", "تم تنفيذ الإجراء عبر ActionExecutor المعتمد؛ لم يتم إرسال بريد خارجي.")
     return _persist_mission(mission)
@@ -306,12 +383,25 @@ def execute_mission(mission_id: str) -> Mission:
 @app.post("/api/missions/{mission_id}/verify", response_model=Mission)
 def verify_mission(mission_id: str) -> Mission:
     mission = get_mission(mission_id)
+    if mission.status == MissionStatus.VERIFIED:
+        return mission
     if mission.status != MissionStatus.EXECUTED:
         raise HTTPException(status_code=409, detail="Mission must be executed before verification")
     action = mission.action or {}
-    result = ActionResult(action_type=str(action.get("type", "")), status="completed", output=dict(action.get("output") or {}), message=str(action.get("result_message", "")))
+    result = ActionResult(
+        action_type=str(action.get("type", "")),
+        status="completed",
+        output=dict(action.get("output") or {}),
+        message=str(action.get("result_message", "")),
+    )
     verification = ACTION_VERIFIER.verify(result)
-    mission.verification = {"status": verification.status, "checks": verification.checks, "details": verification.details, "verified_at": utc_now()}
+    mission.verification = {
+        "status": verification.status,
+        "checks": verification.checks,
+        "details": verification.details,
+        "verified_at": utc_now(),
+        "execution_id": action.get("execution_id"),
+    }
     if verification.status != "verified":
         raise HTTPException(status_code=409, detail="Execution could not be verified")
     mission.status = MissionStatus.VERIFIED
