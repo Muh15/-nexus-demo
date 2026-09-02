@@ -11,6 +11,7 @@ from .intelligence_graph import IntelligenceGraph
 from .mission_intelligence import MissionIntelligence
 from .models import BusinessContext, utc_now
 from .planner import ActionPlan, plan_action
+from .research_executor import ResearchExecutor, ResearchResult
 from .research_planner import ResearchPlan, build_research_plan
 
 
@@ -19,7 +20,7 @@ class MissionState:
     """Explicit lifecycle state for a NEXUS mission.
 
     The orchestrator owns workflow state only; domain reasoning, connectors,
-    memory, graph projection, actions, and verification remain replaceable.
+    memory, graph projection, research, actions, and verification remain replaceable.
     """
 
     id: str
@@ -32,6 +33,7 @@ class MissionState:
     intelligence_graph: IntelligenceGraph | None = None
     impact_assessments: list[ImpactAssessment] = field(default_factory=list)
     research_plan: ResearchPlan | None = None
+    research_results: list[ResearchResult] = field(default_factory=list)
     decision: dict[str, Any] | None = None
     action_plan: ActionPlan | None = None
     verification: dict[str, Any] | None = None
@@ -56,9 +58,16 @@ Reasoner = Callable[[str, list[str], BusinessContext], dict[str, Any]]
 class MissionOrchestrator:
     """Coordinates the NEXUS lifecycle without owning business logic."""
 
-    def __init__(self, reasoner: Reasoner, *, intelligence: MissionIntelligence | None = None) -> None:
+    def __init__(
+        self,
+        reasoner: Reasoner,
+        *,
+        intelligence: MissionIntelligence | None = None,
+        research_executor: ResearchExecutor | None = None,
+    ) -> None:
         self._reasoner = reasoner
         self._intelligence = intelligence or MissionIntelligence()
+        self._research_executor = research_executor or ResearchExecutor()
 
     def create(
         self,
@@ -108,10 +117,40 @@ class MissionOrchestrator:
         )
         return mission
 
+    def research(self, mission: MissionState) -> MissionState:
+        if mission.stage not in {"understand", "researched"}:
+            raise ValueError(f"Cannot research from stage: {mission.stage}")
+        if mission.research_plan is None:
+            raise ValueError("Research plan is required before execution")
+
+        mission.transition(
+            "researching",
+            "يتم جمع الأدلة اللازمة لسد فجوات المعلومات قبل القرار.",
+            task_count=len(mission.research_plan.pending()),
+        )
+        mission.research_results = self._research_executor.execute(
+            mission.research_plan,
+            mission.context,
+        )
+        for result in mission.research_results:
+            for evidence in result.evidence:
+                mission.context.add_evidence(evidence)
+
+        unavailable = sum(1 for result in mission.research_results if result.status == "unavailable")
+        completed = sum(1 for result in mission.research_results if result.status == "completed")
+        mission.transition(
+            "researched",
+            "انتهت دورة البحث ويمكن الآن تقييم كفاية الأدلة.",
+            completed=completed,
+            unavailable=unavailable,
+            evidence_added=sum(len(result.evidence) for result in mission.research_results),
+        )
+        return mission
+
     def decide(self, mission: MissionState) -> MissionState:
-        if mission.stage not in {"understand", "reason"}:
+        if mission.stage not in {"understand", "researched", "reason"}:
             raise ValueError(f"Cannot decide from stage: {mission.stage}")
-        mission.transition("reason", "يتم تقييم الإشارات والقيود والتغيّرات ذات الصلة.")
+        mission.transition("reason", "يتم تقييم الإشارات والقيود والتغيّرات والأدلة المتاحة.")
         mission.decision = self._reasoner(mission.goal, mission.constraints, mission.context)
         mission.transition("decide", "اكتمل القرار وأصبح جاهزًا لتخطيط الإجراء.")
         return mission
