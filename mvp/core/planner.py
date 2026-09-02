@@ -22,6 +22,7 @@ def plan_action(
     target: str | None = None,
     action_type: str = "draft_email",
     amount: float | None = None,
+    body: dict[str, Any] | None = None,
 ) -> ActionPlan:
     """Translate a decision into a policy-checked, explicit action plan.
 
@@ -36,6 +37,7 @@ def plan_action(
         policy=policy,
         payload={
             "target": target,
+            "body": dict(body or {}),
             "approval_required": policy.requires_approval,
             "execution_allowed": policy.allowed,
             "risk": policy.risk.value,
