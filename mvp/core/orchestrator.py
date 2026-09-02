@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable
 from uuid import uuid4
 
-from .action_executor import ActionExecutor, ActionResult
+from .action_executor import ActionExecutor, ActionResult, draft_email_handler
 from .context_builder import build_context
 from .goal_planner import GoalPlan, build_goal_plan, parse_goal
 from .impact import ImpactAssessment
@@ -14,7 +14,7 @@ from .models import BusinessContext, utc_now
 from .planner import ActionPlan, plan_action
 from .research_executor import ResearchExecutor, ResearchResult
 from .research_planner import ResearchPlan, build_research_plan
-from .verifier import ActionVerifier, VerificationResult
+from .verifier import ActionVerifier, VerificationResult, draft_email_verifier
 
 
 @dataclass(slots=True)
@@ -62,8 +62,8 @@ class MissionOrchestrator:
         self._reasoner = reasoner
         self._intelligence = intelligence or MissionIntelligence()
         self._research_executor = research_executor or ResearchExecutor()
-        self._action_executor = action_executor or ActionExecutor()
-        self._verifier = verifier or ActionVerifier()
+        self._action_executor = action_executor or ActionExecutor({"draft_email": draft_email_handler})
+        self._verifier = verifier or ActionVerifier({"draft_email": draft_email_verifier})
 
     def create(
         self,
