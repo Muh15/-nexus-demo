@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from .action_executor import ActionExecutor, draft_email_handler
 from .orchestrator import MissionOrchestrator
 from .reasoner import reason_from_evidence
@@ -7,7 +9,16 @@ from .research_executor import ResearchExecutor, context_provider
 from .verifier import ActionVerifier, draft_email_verifier
 
 
-def build_mission_orchestrator() -> MissionOrchestrator:
+@dataclass(frozen=True, slots=True)
+class MissionRuntime:
+    """Single composition root for the mission lifecycle dependencies."""
+
+    orchestrator: MissionOrchestrator
+    action_executor: ActionExecutor
+    verifier: ActionVerifier
+
+
+def build_runtime() -> MissionRuntime:
     research = ResearchExecutor()
     for connector, source in {
         "file": "file",
@@ -22,10 +33,19 @@ def build_mission_orchestrator() -> MissionOrchestrator:
 
     actions = ActionExecutor({"draft_email": draft_email_handler})
     verifier = ActionVerifier({"draft_email": draft_email_verifier})
-
-    return MissionOrchestrator(
+    orchestrator = MissionOrchestrator(
         lambda goal, constraints, context: reason_from_evidence(goal, constraints, context).as_dict(),
         research_executor=research,
         action_executor=actions,
         verifier=verifier,
     )
+    return MissionRuntime(
+        orchestrator=orchestrator,
+        action_executor=actions,
+        verifier=verifier,
+    )
+
+
+def build_mission_orchestrator() -> MissionOrchestrator:
+    """Backward-compatible factory; new callers should prefer build_runtime()."""
+    return build_runtime().orchestrator
