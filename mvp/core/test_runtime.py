@@ -1,3 +1,4 @@
+from connectors.business_api_connector import BusinessApiConnector
 from connectors.file_connector import FileConnector
 from connectors.http_json_connector import HttpJsonConnector
 from core.action_executor import ActionExecutor
@@ -30,6 +31,35 @@ def test_runtime_registers_http_json_when_hosts_are_configured(monkeypatch):
 
     assert isinstance(runtime.registry.connectors["http_json"], HttpJsonConnector)
     assert runtime.registry.describe()["connectors"] == ["file", "http_json"]
+
+
+def test_runtime_registers_configured_business_connectors(monkeypatch):
+    monkeypatch.setenv("NEXUS_HTTP_ALLOWED_HOSTS", "erp.example.test,crm.example.test,supplier.example.test")
+    monkeypatch.setenv("NEXUS_ERP_URL", "https://erp.example.test")
+    monkeypatch.setenv("NEXUS_ERP_ENDPOINT", "/api/orders")
+    monkeypatch.setenv("NEXUS_ERP_TOKEN_ENV", "ERP_TOKEN")
+    monkeypatch.setenv("NEXUS_CRM_URL", "https://crm.example.test")
+    monkeypatch.setenv("NEXUS_CRM_ENDPOINT", "/api/opportunities")
+    monkeypatch.setenv("NEXUS_SUPPLIER_URL", "https://supplier.example.test")
+    monkeypatch.setenv("NEXUS_SUPPLIER_ENDPOINT", "/api/suppliers")
+
+    runtime = build_runtime()
+
+    assert isinstance(runtime.registry.connectors["erp"], BusinessApiConnector)
+    assert isinstance(runtime.registry.connectors["crm"], BusinessApiConnector)
+    assert isinstance(runtime.registry.connectors["supplier"], BusinessApiConnector)
+    assert {"erp", "crm", "supplier"}.issubset(runtime.registry.describe()["connectors"])
+
+
+def test_business_connectors_remain_disabled_without_explicit_urls(monkeypatch):
+    for name in ("ERP", "CRM", "SUPPLIER"):
+        monkeypatch.delenv(f"NEXUS_{name}_URL", raising=False)
+        monkeypatch.delenv(f"NEXUS_{name}_ENDPOINT", raising=False)
+    runtime = build_runtime()
+
+    assert "erp" not in runtime.registry.connectors
+    assert "crm" not in runtime.registry.connectors
+    assert "supplier" not in runtime.registry.connectors
 
 
 def test_legacy_factory_still_returns_orchestrator():
