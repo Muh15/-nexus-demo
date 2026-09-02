@@ -144,18 +144,16 @@ def build_runtime() -> MissionRuntime:
     actions = ActionExecutor({"draft_email": draft_email_handler})
     verifier = ActionVerifier({"draft_email": draft_email_verifier})
 
-    # Real write actions are opt-in and share the same host allow-list and
-    # credential boundary as business read connectors. Nothing is registered
-    # unless URL + endpoint + allow-list are explicitly configured.
     action_url = os.getenv("NEXUS_ACTION_URL", "").strip()
     action_endpoint = os.getenv("NEXUS_ACTION_ENDPOINT", "").strip()
     action_token_env = os.getenv("NEXUS_ACTION_TOKEN_ENV", "").strip() or None
-    if action_url and action_endpoint and allowed_hosts := frozenset(host.strip() for host in os.getenv("NEXUS_HTTP_ALLOWED_HOSTS", "").split(",") if host.strip()):
+    action_allowed_hosts = frozenset(host.strip() for host in os.getenv("NEXUS_HTTP_ALLOWED_HOSTS", "").split(",") if host.strip())
+    if action_url and action_endpoint and action_allowed_hosts:
         connector = BusinessActionConnector(
             BusinessActionConfig(
                 name="business_action",
                 base_url=action_url,
-                allowed_hosts=allowed_hosts,
+                allowed_hosts=action_allowed_hosts,
                 token_env=action_token_env,
                 timeout_seconds=float(os.getenv("NEXUS_ACTION_TIMEOUT_SECONDS", "10")),
                 max_response_bytes=int(os.getenv("NEXUS_ACTION_MAX_BYTES", "2000000")),
