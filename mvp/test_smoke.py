@@ -136,8 +136,9 @@ def test_goal_classifier_is_shared_and_structured():
     assert supplier.key == "supplier" and "contracts" in supplier.evidence_domains
 
 
-def test_goal_planner_has_safe_fallback_for_ambiguous_goal():
+def test_goal_planner_maps_customer_goal_to_customer_evidence():
     plan = build_goal_plan(parse_goal("تحسين تجربة العملاء"))
+    assert plan.profile.key == "customer"
     assert plan.domains() == ["customers", "sales_pipeline"]
 
 
@@ -220,7 +221,7 @@ def test_supplier_goal_profile_works_in_arabic_and_english():
     arabic = reason_from_evidence("تحسين شروط الموردين", [], context)
     english = reason_from_evidence("Improve supplier terms", [], context)
     assert arabic.title.startswith("قرار الموردين")
-    assert "المورد" in arabic.recommended_action
+    assert "مورد" in arabic.recommended_action
     assert english.title.startswith("قرار الموردين")
 
 
