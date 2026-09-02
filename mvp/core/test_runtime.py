@@ -1,6 +1,7 @@
 from connectors.file_connector import FileConnector
 from connectors.http_json_connector import HttpJsonConnector
 from core.action_executor import ActionExecutor
+from core.ingestion_scheduler import SQLiteIngestionScheduler
 from core.mission_repository import SQLiteMissionRepository
 from core.orchestrator import MissionOrchestrator
 from core.runtime import MissionRuntime, build_mission_orchestrator, build_runtime
@@ -19,6 +20,7 @@ def test_runtime_composes_one_shared_dependency_graph():
     assert runtime.registry.executors["action"] is runtime.action_executor
     assert runtime.registry.verifiers["action"] is runtime.verifier
     assert isinstance(runtime.mission_repository, SQLiteMissionRepository)
+    assert isinstance(runtime.ingestion_scheduler, SQLiteIngestionScheduler)
     assert "http_json" not in runtime.registry.connectors
 
 
