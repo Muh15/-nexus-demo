@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from .goal_planner import classify_goal
 from .models import BusinessContext, Evidence
 
 
@@ -40,21 +41,6 @@ def _evidence_score(items: list[Evidence]) -> int:
     return round(sum(max(0, min(100, item.confidence)) for item in items) / len(items))
 
 
-def _goal_profile(goal: str) -> str:
-    text = goal.lower()
-    if any(token in text for token in ("cost", "تكلفة", "مصروف", "مصاريف", "خفض", "خفض التكاليف")):
-        return "cost"
-    if any(token in text for token in ("revenue", "sales", "ربح", "إيراد", "مبيعات", "نمو المبيعات")):
-        return "revenue"
-    if any(token in text for token in ("risk", "compliance", "مخاطر", "مخاطرة", "امتثال", "تنظيم")):
-        return "risk"
-    if any(token in text for token in ("customer", "retention", "تجربة العملاء", "العملاء", "احتفاظ")):
-        return "customer"
-    if any(token in text for token in ("supplier", "vendor", "مورد", "موردين")):
-        return "supplier"
-    return "general"
-
-
 def reason_from_evidence(goal: str, constraints: list[str], context: BusinessContext) -> EvidenceDecision:
     """Produce a conservative, goal-profiled decision grounded in collected evidence."""
     evidence = list(context.evidence.values())
@@ -62,7 +48,7 @@ def reason_from_evidence(goal: str, constraints: list[str], context: BusinessCon
     ids = [item.id for item in evidence]
     rationale = [f"{item.claim}: {item.value}" for item in evidence[:5]] or ["لا توجد أدلة كافية لاتخاذ قرار قوي."]
     confidence = min(95, max(35, score if evidence else 35))
-    profile = _goal_profile(goal)
+    profile = classify_goal(goal).key
 
     profiles = {
         "cost": (
