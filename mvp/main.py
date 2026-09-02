@@ -141,7 +141,7 @@ def approve_mission(mission_id:str,principal:Principal=Depends(principal_context
     if m.stage=="approved": return _to_api_mission(m)
     try:
         if m.stage=="decide": RUNTIME.orchestrator.plan(m,target="ABC Industrial")
-        RUNTIME.orchestrator.approve(m)
+        RUNTIME.orchestrator.approve(m,actor_subject=principal.subject,actor_role=principal.role.value)
     except PermissionError as exc: raise HTTPException(403,str(exc)) from exc
     except ValueError as exc: raise HTTPException(409,str(exc)) from exc
     _record_actor_audit(m,principal,"approve_mission","تم اعتماد الإجراء بواسطة هوية مصادقة."); return _save(m)
@@ -151,7 +151,7 @@ def execute_mission(mission_id:str,principal:Principal=Depends(principal_context
     if m is None: raise HTTPException(404,"Mission not found")
     if m.stage in {"executed","verified"}: return _to_api_mission(m)
     if m.stage!="approved": raise HTTPException(409,"Mission must be approved before execution")
-    try: RUNTIME.orchestrator.execute(m)
+    try: RUNTIME.orchestrator.execute(m,actor_subject=principal.subject,actor_role=principal.role.value)
     except ValueError as exc: raise HTTPException(409,str(exc)) from exc
     _record_actor_audit(m,principal,"execute_mission","تم تنفيذ الإجراء بواسطة هوية مصادقة."); return _save(m)
 @app.post("/api/missions/{mission_id}/verify",response_model=Mission)
