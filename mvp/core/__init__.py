@@ -7,6 +7,7 @@ from .mission_intelligence import MissionIntelligence
 from .models import BusinessContext, Entity, Evidence, Relationship
 from .orchestrator import MissionOrchestrator, MissionState
 from .repository import InMemoryMissionRepository
+from .research_planner import ResearchPlan, ResearchTask, build_research_plan
 
 __all__ = [
     "BusinessContext",
@@ -24,6 +25,9 @@ __all__ = [
     "GraphNode",
     "IntelligenceGraph",
     "MissionIntelligence",
+    "ResearchPlan",
+    "ResearchTask",
+    "build_research_plan",
     "MissionOrchestrator",
     "MissionState",
     "InMemoryMissionRepository",
