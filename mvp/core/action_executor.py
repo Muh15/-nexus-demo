@@ -4,6 +4,7 @@ from dataclasses import dataclass, field, replace
 from typing import Any, Callable
 from uuid import uuid4
 
+from .authorization import authorize_execution, separation_of_duties_enabled
 from .planner import ActionPlan, action_fingerprint
 
 
@@ -20,7 +21,7 @@ ActionHandler = Callable[[ActionPlan], ActionResult]
 
 
 class ActionExecutor:
-    """Executes only policy-approved actions through replaceable handlers."""
+    """Executes policy-approved actions through an authorized core boundary."""
 
     def __init__(self, handlers: dict[str, ActionHandler] | None = None) -> None:
         self._handlers = dict(handlers or {})
@@ -32,42 +33,47 @@ class ActionExecutor:
 
     @staticmethod
     def _approval_is_bound(plan: ActionPlan) -> bool:
-        """Approval must match the exact action payload being executed."""
         if not plan.payload.get("approval_required"):
             return True
         expected = str(plan.payload.get("action_fingerprint", ""))
-        actual = action_fingerprint(
-            plan.action_type,
-            plan.payload.get("target"),
-            dict(plan.payload.get("body", {})),
-        )
+        actual = action_fingerprint(plan.action_type, plan.payload.get("target"), dict(plan.payload.get("body", {})))
         approved = str(plan.payload.get("approved_fingerprint", ""))
-        # Legacy snapshots may contain only approved=True. The fingerprint
-        # still protects them because it is computed when the action is planned.
         return bool(expected and expected == actual and (not approved or approved == actual))
 
-    def execute(self, plan: ActionPlan) -> ActionResult:
+    @staticmethod
+    def _separation_is_valid(plan: ActionPlan, actor_subject: str | None) -> bool:
+        if not separation_of_duties_enabled():
+            return True
+        approver = str(plan.payload.get("approved_by_subject", "")).strip()
+        return bool(approver and actor_subject and approver != actor_subject)
+
+    def execute(
+        self,
+        plan: ActionPlan,
+        *,
+        tenant_id: str | None = None,
+        actor_role: str | None = None,
+        actor_subject: str | None = None,
+    ) -> ActionResult:
+        authorization = authorize_execution(
+            plan.action_type,
+            tenant_id=tenant_id,
+            plan_tenant_id=plan.payload.get("tenant_id"),
+            actor_role=actor_role,
+        )
+        if not authorization.allowed:
+            return ActionResult(action_type=plan.action_type, status="blocked", message=authorization.reason)
         if not plan.policy.allowed:
             return ActionResult(action_type=plan.action_type, status="blocked", message=plan.policy.reason)
         if plan.payload.get("approval_required") and not plan.payload.get("approved"):
-            return ActionResult(
-                action_type=plan.action_type,
-                status="awaiting_approval",
-                message="Explicit approval is required before execution.",
-            )
+            return ActionResult(action_type=plan.action_type, status="awaiting_approval", message="Explicit approval is required before execution.")
         if not self._approval_is_bound(plan):
-            return ActionResult(
-                action_type=plan.action_type,
-                status="blocked",
-                message="Approval is no longer valid because the action payload changed.",
-            )
+            return ActionResult(action_type=plan.action_type, status="blocked", message="Approval is no longer valid because the action payload changed.")
+        if not self._separation_is_valid(plan, actor_subject):
+            return ActionResult(action_type=plan.action_type, status="blocked", message="Execution requires a different principal from the approver.")
         handler = self._handlers.get(plan.action_type)
         if handler is None:
-            return ActionResult(
-                action_type=plan.action_type,
-                status="unavailable",
-                message="No execution handler is registered for this action type.",
-            )
+            return ActionResult(action_type=plan.action_type, status="unavailable", message="No execution handler is registered for this action type.")
         execution_id = plan.payload.get("execution_id") or f"EXE-{uuid4().hex[:12].upper()}"
         executable_plan = replace(plan, payload={**plan.payload, "execution_id": execution_id})
         result = handler(executable_plan)
@@ -81,11 +87,6 @@ def draft_email_handler(plan: ActionPlan) -> ActionResult:
     return ActionResult(
         action_type=plan.action_type,
         status="completed",
-        output={
-            "kind": "email_draft",
-            "target": plan.payload.get("target"),
-            "description": plan.description,
-            "sent": False,
-        },
+        output={"kind": "email_draft", "target": plan.payload.get("target"), "description": plan.description, "sent": False},
         message="Created a reversible email draft; nothing was sent.",
     )
