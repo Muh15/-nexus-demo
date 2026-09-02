@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from connectors.business_api_connector import BusinessApiConnector
 from connectors.http_json_connector import HttpJsonConnector
 
 from .models import BusinessContext, Evidence
@@ -131,4 +132,60 @@ def http_json_provider(
             message=f"Collected {len(evidence)} records from the configured HTTP JSON source.",
         )
 
+    return provide
+
+
+def business_api_provider(
+    connector: BusinessApiConnector,
+    endpoint: str,
+    *,
+    confidence: int = 90,
+) -> ResearchProvider:
+    """Build a provider for a scoped CRM/ERP/supplier REST connector."""
+
+    path = endpoint.strip()
+    if not path:
+        raise ValueError("business API endpoint is required")
+
+    def provide(task: ResearchTask, context: BusinessContext) -> ResearchResult:
+        del context
+        try:
+            result = connector.fetch(path)
+        except Exception as exc:
+            return ResearchResult(
+                task_domain=task.domain,
+                connector=task.connector,
+                status="unavailable",
+                message=f"Business API research failed: {exc}",
+            )
+
+        evidence = [
+            Evidence(
+                id=f"research:business:{task.domain}:{index}",
+                source=result.source,
+                claim=task.question,
+                value=record,
+                confidence=confidence,
+                locator=provenance.get("locator"),
+                metadata={
+                    "domain": task.domain,
+                    "connector": task.connector,
+                    "task": task.reason,
+                    "url": result.metadata.get("url"),
+                    "sha256": result.metadata.get("sha256"),
+                    "status_code": result.metadata.get("status_code"),
+                    "next_cursor": result.metadata.get("next_cursor"),
+                },
+            )
+            for index, (record, provenance) in enumerate(
+                zip(result.records, result.provenance or [{} for _ in result.records]), start=1
+            )
+        ]
+        return ResearchResult(
+            task_domain=task.domain,
+            connector=task.connector,
+            status="completed",
+            evidence=evidence,
+            message=f"Collected {len(evidence)} records from the configured business API.",
+        )
     return provide
