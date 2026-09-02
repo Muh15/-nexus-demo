@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Callable
+from uuid import uuid4
 
 from .planner import ActionPlan
 
@@ -12,6 +13,7 @@ class ActionResult:
     status: str
     output: dict[str, Any] = field(default_factory=dict)
     message: str = ""
+    execution_id: str | None = None
 
 
 ActionHandler = Callable[[ActionPlan], ActionResult]
@@ -48,7 +50,10 @@ class ActionExecutor:
                 status="unavailable",
                 message="No execution handler is registered for this action type.",
             )
-        return handler(plan)
+        result = handler(plan)
+        if result.status == "completed" and result.execution_id is None:
+            return replace(result, execution_id=f"EXE-{uuid4().hex[:12].upper()}")
+        return result
 
 
 def draft_email_handler(plan: ActionPlan) -> ActionResult:
