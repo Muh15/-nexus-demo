@@ -6,7 +6,7 @@ from .impact import ImpactAssessment, assess_change
 from .intelligence_graph import GraphEdge, GraphNode, IntelligenceGraph
 from .mission_intelligence import MissionIntelligence
 from .models import BusinessContext, Entity, Evidence, Relationship
-from .orchestrator import MissionOrchestrator, MissionState
+from .orchestrator import MissionOrchestrator, MissionState, mission_from_snapshot
 from .repository import InMemoryMissionRepository
 from .research_executor import ResearchExecutor, ResearchResult, context_provider
 from .research_planner import ResearchPlan, ResearchTask, build_research_plan
@@ -23,6 +23,6 @@ __all__ = [
     "ActionExecutor", "ActionResult", "draft_email_handler",
     "ActionVerifier", "VerificationResult", "draft_email_verifier",
     "SQLiteMissionStore",
-    "MissionOrchestrator", "MissionState", "InMemoryMissionRepository",
+    "MissionOrchestrator", "MissionState", "mission_from_snapshot", "InMemoryMissionRepository",
     "MissionRuntime", "build_runtime", "build_mission_orchestrator",
 ]
