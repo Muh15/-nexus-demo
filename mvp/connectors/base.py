@@ -9,10 +9,16 @@ class ConnectorResult:
     source: str
     records: list[dict[str, Any]] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
+    provenance: list[dict[str, Any]] = field(default_factory=list)
 
 
 class Connector:
-    """Minimal connector contract used by the NEXUS MVP."""
+    """Common contract for every NEXUS data connector.
+
+    A connector is responsible for transport/parsing only. It must not make
+    business decisions; it returns normalized-enough records plus provenance
+    so the intelligence layer can reason over evidence without losing origin.
+    """
 
     name: str = "base"
 
