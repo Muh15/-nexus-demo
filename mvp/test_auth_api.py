@@ -32,13 +32,16 @@ def test_strict_auth_derives_tenant_and_role_from_server_config(monkeypatch, tmp
 
 def test_strict_auth_role_cannot_be_spoofed(monkeypatch, tmp_path):
     monkeypatch.setenv("NEXUS_AUTH_REQUIRED", "true")
-    monkeypatch.setenv("NEXUS_API_KEYS", "view-token=bob:tenant-secure:viewer,approve-token=alice:tenant-secure:approver")
+    monkeypatch.setenv(
+        "NEXUS_API_KEYS",
+        "operator-token=op:tenant-secure:operator,view-token=bob:tenant-secure:viewer,approve-token=alice:tenant-secure:approver",
+    )
     original_repo = main.MISSION_REPOSITORY
     try:
         main.MISSION_REPOSITORY = SQLiteMissionRepository(SQLiteMissionStore(tmp_path / "secure-role.sqlite3"))
         mission = client.post(
             "/api/missions",
-            headers={"X-API-Key": "approve-token"},
+            headers={"X-API-Key": "operator-token"},
             json={"goal": "Reduce operating cost by 10%"},
         )
         assert mission.status_code == 201
