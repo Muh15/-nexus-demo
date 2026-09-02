@@ -184,9 +184,10 @@ def reason(goal: str, constraints: list[str], signals: list[Signal]) -> Decision
 
 def _signals_from_core(mission: MissionState) -> list[Signal]:
     result: list[Signal] = []
+    valid_sources = {item.value for item in SourceType}
     for evidence in mission.context.evidence.values():
         raw_source = str(evidence.source or "unknown").lower()
-        source = SourceType(raw_source) if raw_source in {item.value for item in SourceType} else SourceType.UNKNOWN
+        source = SourceType(raw_source) if raw_source in valid_sources else SourceType.UNKNOWN
         metadata = evidence.metadata or {}
         result.append(
             Signal(
@@ -245,14 +246,21 @@ def _to_api_mission(mission: MissionState) -> Mission:
         if mission.action_result is not None:
             action["output"] = mission.action_result.output
             action["result_message"] = mission.action_result.message
+            action["execution_id"] = mission.action_result.execution_id
     verification = None
     if mission.verification is not None:
         verification = {
             "status": mission.verification.status,
             "checks": mission.verification.checks,
             "details": mission.verification.details,
+            "execution_id": mission.action_result.execution_id if mission.action_result else None,
         }
     audit = [AuditEvent(timestamp=str(item.get("timestamp", "")), stage=str(item.get("stage", "")), message=str(item.get("message", ""))) for item in mission.audit]
+    valid_sources = {item.value for item in SourceType}
+    sources = {
+        SourceType(str(ev.source)) if str(ev.source) in valid_sources else SourceType.UNKNOWN
+        for ev in mission.context.evidence.values()
+    }
     return Mission(
         id=mission.id,
         tenant_id=mission.tenant_id,
@@ -260,7 +268,7 @@ def _to_api_mission(mission: MissionState) -> Mission:
         status=_status_for_stage(mission.stage),
         goal=mission.goal,
         constraints=mission.constraints,
-        sources_used=sorted({SourceType(str(ev.source)) if str(ev.source) in {x.value for x in SourceType} else SourceType.UNKNOWN for ev in mission.context.evidence.values()}, key=lambda value: value.value),
+        sources_used=sorted(sources, key=lambda value: value.value),
         signals=_signals_from_core(mission),
         research=ResearchSummary(
             domains=mission.goal_plan.domains() if mission.goal_plan else [],
