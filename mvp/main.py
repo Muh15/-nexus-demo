@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 from datetime import datetime, timezone
 from enum import Enum
@@ -9,6 +10,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from connectors.normalize import normalize_records
+from core.auth import ActorRole, AuthenticationError, Principal, authenticate_api_key
 from core.models import BusinessContext, Evidence
 from core.orchestrator import MissionState
 from core.reasoner import reason_from_evidence
@@ -17,7 +19,7 @@ from core.mission_repository import SQLiteMissionRepository
 
 app = FastAPI(
     title="NEXUS MVP",
-    version="0.9.0",
+    version="1.0.0",
     description="Goal-driven AI intelligence: Observe → Understand → Research → Reason → Decide → Act → Verify",
 )
 
@@ -39,13 +41,6 @@ class SourceType(str, Enum):
     CRM = "crm"
     WEB = "web"
     UNKNOWN = "unknown"
-
-
-class ActorRole(str, Enum):
-    VIEWER = "viewer"
-    OPERATOR = "operator"
-    APPROVER = "approver"
-    ADMIN = "admin"
 
 
 class Signal(BaseModel):
@@ -135,19 +130,44 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def tenant_context(x_tenant_id: str | None = Header(default=None, alias="X-Tenant-ID")) -> str:
-    tenant_id = (x_tenant_id or DEFAULT_TENANT).strip()
-    if not TENANT_PATTERN.fullmatch(tenant_id):
+def _strict_auth_enabled() -> bool:
+    return os.getenv("NEXUS_AUTH_REQUIRED", "false").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def principal_context(
+    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-ID"),
+    x_actor_role: str | None = Header(default=None, alias="X-Actor-Role"),
+) -> Principal:
+    if _strict_auth_enabled():
+        try:
+            principal = authenticate_api_key(x_api_key or "")
+        except AuthenticationError as exc:
+            raise HTTPException(status_code=401, detail=str(exc)) from exc
+        supplied_tenant = (x_tenant_id or "").strip()
+        supplied_role = (x_actor_role or "").strip().lower()
+        if supplied_tenant and supplied_tenant != principal.tenant_id:
+            raise HTTPException(status_code=403, detail="Tenant does not match authenticated principal")
+        if supplied_role and supplied_role != principal.role.value:
+            raise HTTPException(status_code=403, detail="Role does not match authenticated principal")
+        return principal
+    tenant = (x_tenant_id or DEFAULT_TENANT).strip()
+    if not TENANT_PATTERN.fullmatch(tenant):
         raise HTTPException(status_code=400, detail="Invalid X-Tenant-ID")
-    return tenant_id
-
-
-def role_context(x_actor_role: str | None = Header(default=None, alias="X-Actor-Role")) -> ActorRole:
-    value = (x_actor_role or DEFAULT_ROLE.value).strip().lower()
+    role_value = (x_actor_role or DEFAULT_ROLE.value).strip().lower()
     try:
-        return ActorRole(value)
+        role = ActorRole(role_value)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="Invalid X-Actor-Role") from exc
+    return Principal(subject="dev-mode", tenant_id=tenant, role=role)
+
+
+def tenant_context(principal: Principal = Depends(principal_context)) -> str:
+    return principal.tenant_id
+
+
+def role_context(principal: Principal = Depends(principal_context)) -> ActorRole:
+    return principal.role
 
 
 def require_role(role: ActorRole, allowed: set[ActorRole]) -> None:
@@ -265,12 +285,17 @@ def _get_core(tenant_id: str, mission_id: str) -> MissionState | None:
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "service": "nexus-mvp", "version": "0.9.0"}
+    return {"status": "ok", "service": "nexus-mvp", "version": "1.0.0"}
 
 
 @app.get("/api/runtime")
 def runtime_info() -> dict[str, Any]:
     return {"registry": RUNTIME.registry.describe()}
+
+
+@app.get("/api/auth/mode")
+def auth_mode() -> dict[str, Any]:
+    return {"required": _strict_auth_enabled(), "header": "X-API-Key"}
 
 
 @app.get("/api/context")
