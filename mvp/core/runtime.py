@@ -7,6 +7,7 @@ from connectors.file_connector import FileConnector
 from connectors.http_json_connector import HttpJsonConfig, HttpJsonConnector
 
 from .action_executor import ActionExecutor, draft_email_handler
+from .ingestion_scheduler import SQLiteIngestionScheduler
 from .mission_repository import SQLiteMissionRepository
 from .orchestrator import MissionOrchestrator
 from .reasoner import reason_from_evidence
@@ -25,6 +26,7 @@ class MissionRuntime:
     verifier: ActionVerifier
     registry: ComponentRegistry
     mission_repository: SQLiteMissionRepository
+    ingestion_scheduler: SQLiteIngestionScheduler
 
 
 def _build_connector_registry() -> ComponentRegistry:
@@ -89,12 +91,14 @@ def build_runtime() -> MissionRuntime:
     )
     repository_path = os.getenv("NEXUS_DB_PATH", "nexus_mvp.sqlite3")
     repository = SQLiteMissionRepository(SQLiteMissionStore(repository_path))
+    scheduler = SQLiteIngestionScheduler(repository_path)
     return MissionRuntime(
         orchestrator=orchestrator,
         action_executor=actions,
         verifier=verifier,
         registry=registry,
         mission_repository=repository,
+        ingestion_scheduler=scheduler,
     )
 
 
