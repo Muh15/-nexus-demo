@@ -11,6 +11,7 @@ from .intelligence_graph import IntelligenceGraph
 from .mission_intelligence import MissionIntelligence
 from .models import BusinessContext, utc_now
 from .planner import ActionPlan, plan_action
+from .research_planner import ResearchPlan, build_research_plan
 
 
 @dataclass(slots=True)
@@ -30,6 +31,7 @@ class MissionState:
     goal_plan: GoalPlan | None = None
     intelligence_graph: IntelligenceGraph | None = None
     impact_assessments: list[ImpactAssessment] = field(default_factory=list)
+    research_plan: ResearchPlan | None = None
     decision: dict[str, Any] | None = None
     action_plan: ActionPlan | None = None
     verification: dict[str, Any] | None = None
@@ -88,15 +90,21 @@ class MissionOrchestrator:
             source=source,
         )
         mission.impact_assessments = assessments
+        mission.research_plan = build_research_plan(
+            mission.goal_plan,
+            mission.context,
+            assessments,
+        )
 
         mission.transition(
             "understand",
-            "تم بناء سياق أعمال وخريطة أدلة وتقييم صلة التغيّرات بالهدف.",
+            "تم بناء السياق وخريطة الأدلة وتحديد فجوات المعلومات قبل القرار.",
             entities=len(mission.context.entities),
             relationships=len(mission.context.relationships),
             evidence=len(mission.context.evidence),
             research_domains=mission.goal_plan.domains() if mission.goal_plan else [],
             relevant_changes=sum(1 for item in assessments if item.relevant),
+            research_tasks=len(mission.research_plan.pending()) if mission.research_plan else 0,
         )
         return mission
 
