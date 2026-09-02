@@ -1,3 +1,8 @@
+from __future__ import annotations
+
+import httpx
+
+from connectors.business_api_action import BusinessActionConnector
 from connectors.business_api_connector import BusinessApiConnector
 from connectors.file_connector import FileConnector
 from connectors.http_json_connector import HttpJsonConnector
@@ -5,6 +10,7 @@ from core.action_executor import ActionExecutor
 from core.ingestion_scheduler import SQLiteIngestionScheduler
 from core.mission_repository import SQLiteMissionRepository
 from core.orchestrator import MissionOrchestrator
+from core.planner import plan_action
 from core.runtime import MissionRuntime, build_mission_orchestrator, build_runtime
 from core.verifier import ActionVerifier
 
@@ -60,6 +66,39 @@ def test_business_connectors_remain_disabled_without_explicit_urls(monkeypatch):
     assert "erp" not in runtime.registry.connectors
     assert "crm" not in runtime.registry.connectors
     assert "supplier" not in runtime.registry.connectors
+
+
+def test_runtime_registers_and_executes_real_action(monkeypatch):
+    monkeypatch.setenv("NEXUS_HTTP_ALLOWED_HOSTS", "crm.example.test")
+    monkeypatch.setenv("NEXUS_ACTION_URL", "https://crm.example.test")
+    monkeypatch.setenv("NEXUS_ACTION_ENDPOINT", "/api/opportunities/42")
+    monkeypatch.setenv("NEXUS_ACTION_METHOD", "PATCH")
+
+    captured = {}
+
+    class MockClient:
+        def __init__(self, **kwargs):
+            pass
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return False
+        def request(self, method, url, **kwargs):
+            captured.update(method=method, url=url, **kwargs)
+            return httpx.Response(200, json={"updated": True}, request=httpx.Request(method, url))
+
+    monkeypatch.setattr(httpx, "Client", MockClient)
+    runtime = build_runtime()
+
+    assert isinstance(runtime.registry.connectors["business_action"], BusinessActionConnector)
+    plan = plan_action("Update CRM", target="opportunity-42", action_type="update_crm", body={"stage": "negotiation"})
+    approved = type(plan)(plan.action_type, plan.description, plan.policy, {**plan.payload, "approved": True})
+    result = runtime.action_executor.execute(approved)
+
+    assert result.status == "completed"
+    assert result.execution_id
+    assert captured["headers"]["Idempotency-Key"] == result.execution_id
+    assert captured["json"] if "json" in captured else captured["content"]
 
 
 def test_legacy_factory_still_returns_orchestrator():
