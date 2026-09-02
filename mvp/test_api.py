@@ -163,8 +163,8 @@ def test_api_isolates_missions_between_tenants(tmp_path):
 def test_api_isolates_ingested_records_between_tenants(tmp_path):
     original_repo, original_ingested = _isolated_store(tmp_path, "ingest_tenant.sqlite3")
     try:
-        alpha = {"X-Tenant-ID": "tenant-alpha"}
-        beta = {"X-Tenant-ID": "tenant-beta"}
+        alpha = {"X-Tenant-ID": "tenant-alpha", "X-Actor-Role": "operator"}
+        beta = {"X-Tenant-ID": "tenant-beta", "X-Actor-Role": "operator"}
         payload = {"filename": "suppliers.csv", "content": "supplier,monthly_spend\nAlpha,1000\n"}
         response = client.post("/api/ingest/file", json=payload, headers=alpha)
         assert response.status_code == 200
@@ -177,7 +177,7 @@ def test_api_isolates_ingested_records_between_tenants(tmp_path):
 def test_api_rejects_invalid_tenant_id(tmp_path):
     original_repo, original_ingested = _isolated_store(tmp_path, "tenant_validation.sqlite3")
     try:
-        response = client.get("/api/context", headers={"X-Tenant-ID": "bad tenant id"})
+        response = client.get("/api/context", headers={"X-Tenant-ID": "bad tenant id", "X-Actor-Role": "viewer"})
         assert response.status_code == 400
     finally:
         _restore(original_repo, original_ingested)
@@ -192,5 +192,42 @@ def test_api_exposes_runtime_registry(tmp_path):
         assert "file" in registry["connectors"]
         assert "action" in registry["executors"]
         assert "action" in registry["verifiers"]
+    finally:
+        _restore(original_repo, original_ingested)
+
+
+def test_api_enforces_approval_role(tmp_path):
+    original_repo, original_ingested = _isolated_store(tmp_path, "roles_approval.sqlite3")
+    try:
+        mission_id = _create_mission({"X-Tenant-ID": "tenant-role", "X-Actor-Role": "operator"})
+        viewer = client.post(f"/api/missions/{mission_id}/approve", headers={"X-Tenant-ID": "tenant-role", "X-Actor-Role": "viewer"})
+        operator = client.post(f"/api/missions/{mission_id}/approve", headers={"X-Tenant-ID": "tenant-role", "X-Actor-Role": "operator"})
+        approver = client.post(f"/api/missions/{mission_id}/approve", headers={"X-Tenant-ID": "tenant-role", "X-Actor-Role": "approver"})
+        assert viewer.status_code == 403
+        assert operator.status_code == 403
+        assert approver.status_code == 200
+    finally:
+        _restore(original_repo, original_ingested)
+
+
+def test_api_enforces_execution_role(tmp_path):
+    original_repo, original_ingested = _isolated_store(tmp_path, "roles_execute.sqlite3")
+    try:
+        tenant = "tenant-execute"
+        mission_id = _create_mission({"X-Tenant-ID": tenant, "X-Actor-Role": "operator"})
+        assert client.post(f"/api/missions/{mission_id}/approve", headers={"X-Tenant-ID": tenant, "X-Actor-Role": "approver"}).status_code == 200
+        blocked = client.post(f"/api/missions/{mission_id}/execute", headers={"X-Tenant-ID": tenant, "X-Actor-Role": "viewer"})
+        executed = client.post(f"/api/missions/{mission_id}/execute", headers={"X-Tenant-ID": tenant, "X-Actor-Role": "operator"})
+        assert blocked.status_code == 403
+        assert executed.status_code == 200
+    finally:
+        _restore(original_repo, original_ingested)
+
+
+def test_api_rejects_invalid_actor_role(tmp_path):
+    original_repo, original_ingested = _isolated_store(tmp_path, "role_validation.sqlite3")
+    try:
+        response = client.get("/api/context", headers={"X-Actor-Role": "superuser"})
+        assert response.status_code == 400
     finally:
         _restore(original_repo, original_ingested)
