@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from connectors.file_connector import FileConnector
 from connectors.normalize import normalize_records
+from core.models import BusinessContext, Evidence
 from core.orchestrator import MissionOrchestrator
 from core.reasoner import reason_from_evidence
 from core.research_executor import ResearchExecutor, context_provider
@@ -149,21 +150,25 @@ def log_event(audit: list[AuditEvent], stage: str, message: str) -> None:
     audit.append(AuditEvent(timestamp=utc_now(), stage=stage, message=message))
 
 
+def _context_from_signals(signals: list[Signal]) -> BusinessContext:
+    context = BusinessContext()
+    for signal in signals:
+        context.add_evidence(
+            Evidence(
+                id=signal.id,
+                source=signal.source.value,
+                claim=signal.title,
+                value=signal.value,
+                confidence=signal.confidence,
+                metadata={"impact": signal.impact, "kind": "signal"},
+            )
+        )
+    return context
+
+
 def reason(goal: str, constraints: list[str], signals: list[Signal]) -> Decision:
     """Compatibility wrapper used by the smoke tests and demo surface."""
-    from core.context_builder import build_context
-
-    rows = [
-        {
-            "supplier": signal.title,
-            "value": signal.value,
-            "impact": signal.impact,
-            "source": signal.source.value,
-        }
-        for signal in signals
-    ]
-    context = build_context(rows, source="api-signals")
-    decision = reason_from_evidence(goal, constraints, context)
+    decision = reason_from_evidence(goal, constraints, _context_from_signals(signals))
     return Decision(**decision.as_dict())
 
 
