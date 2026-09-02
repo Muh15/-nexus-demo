@@ -18,20 +18,225 @@
 <body>
 <div class="shell">
 <div class="top"><div class="brand"><div class="mark"></div><div><h1>NEXUS</h1><p>محرك الذكاء والتنفيذ المستقل</p></div></div><div class="status"><span class="dot"></span>النظام يعمل · وضع العرض</div></div>
-<section class="hero"><div class="heroCard"><div class="eyebrow">مهمة واحدة · طبقات متعددة من الذكاء</div><h2>توقف عن المراقبة.<br><span>ابدأ بالتصرف.</span></h2><p class="lead">يراقب NEXUS المنتجات والمنافسين والموردين والأنظمة، ثم يربط الإشارات ويحلل أثرها ويحوّلها إلى إجراء عملي.</p><div class="mission"><textarea id="mission" rows="2">راقب سوق اللابتوبات: الأسعار، المنافسين، الموردين، وأي تحديثات تنظيمية. اكتشف فرصة تستحق إجراءً.</textarea><a id="run" class="runBtn" href="#workspace">جرّب NEXUS الآن</a></div><div class="quick"><button class="chip" data-m="راقب أسعار الأجهزة واكتشف أي فرصة شراء أو تسعير تستحق الإجراء.">المنتجات والأسعار</button><button class="chip" data-m="راقب المنافسين واكتشف إطلاقات المنتجات والتغييرات المهمة في الأسعار والعروض.">المنافسون</button><button class="chip" data-m="راقب الموردين واكتشف تغيّر الأسعار والتوفر والبدائل ذات الأثر التجاري.">الموردون</button><button class="chip" data-m="راقب الجهات الرسمية واكتشف أي تحديث تنظيمي قد يؤثر على أعمالنا.">الجهات والأنظمة</button></div><div class="flow"><span>يكتشف</span><i>→</i><span>يفهم</span><i>→</i><span>يقرر</span><i>→</i><strong>ينفّذ</strong></div></div>
-<div class="sideCard"><div class="sideTitle"><span>ذكاء لحظي</span><span class="liveStatus"><i></i> يراقب الآن</span></div><div class="domainStrip"><span>المنتجات والأسعار</span><span>المنافسون</span><span>الموردون</span><span>الجهات والأنظمة</span></div><div class="pulse"><div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div><div class="core"></div></div><div class="kpis"><div class="kpi"><b>127</b><span>مصدر</span></div><div class="kpi"><b>18</b><span>إشارة</span></div><div class="kpi"><b>04</b><span>إجراء</span></div></div></div></section>
-<section id="workspace" class="workspace"><div class="bar"><div><div class="missionLabel">المهمة النشطة · NEXUS ينفّذ الآن</div><div id="missionDisplay" class="missionValue"></div></div><div class="execState" id="execState"><i class="miniDot"></i><span>بانتظار التشغيل</span></div><div class="demoSwitch"><button data-mode="observe" class="active">مراقبة</button><button data-mode="reason">تحليل</button><button data-mode="act">تنفيذ</button></div></div><div class="grid"><div class="box"><div class="boxHead"><span>تنفيذ الوكيل</span><span id="progressTxt">0%</span></div><div class="boxBody timeline" id="timeline"></div></div><div class="box"><div class="boxHead"><span>سجل القرارات</span><span>قابل للتتبع</span></div><div class="boxBody log" id="log"></div></div><div class="box"><div class="boxHead"><span>الذكاء المكتشف</span><span>مرتب حسب الأولوية</span></div><div class="boxBody findings" id="findings"></div></div></div>
-<div class="insightPanel" id="insightPanel" aria-live="polite"><div class="insightHead"><div><span class="eyebrow">تحليل NEXUS</span><h3>لماذا هذه الإشارة مهمة؟</h3></div><span class="scorePill" id="decisionScore">—</span></div><div class="reasonGrid"><div class="reasonCard"><span>الدليل</span><b id="evidenceCount">0 مصادر</b><p id="evidenceReason">بانتظار اكتمال طبقة الاكتشاف.</p></div><div class="reasonCard"><span>الأثر</span><b id="impactText">غير محدد</b><p id="impactReason">يُحدد بعد ربط الإشارات.</p></div><div class="reasonCard"><span>الإجراء المقترح</span><b id="actionText">لم يُنشأ بعد</b><p id="actionReason">سيظهر بعد اتخاذ القرار.</p></div></div><div class="evidenceStrip" id="evidenceStrip"></div></div>
-<div class="result" id="result"><div class="decisionBadge">✓ القرار جاهز للتنفيذ</div><div class="resultTop"><div><div class="eyebrow">توصية NEXUS</div><h3 id="resultTitle">تم اكتشاف فرصة استراتيجية</h3></div><div class="metric">الثقة <b id="confidence">94%</b></div></div><p id="resultText" style="color:#9eb5c1;font-size:12px;line-height:1.6;margin:9px 0 0"></p><div class="actionRow"><span class="action primary" id="createAction">✓ إنشاء خطة إجراء</span><span class="action" id="openEvidence">فتح الأدلة</span><span class="action">إسناد للفريق</span><span class="action">تصدير سجل التدقيق</span></div><div id="auditLine" class="auditLine"></div></div></section>
-<div class="footer">نموذج LEAP · مصادر ويب حية عند توفر الاتصال · نتائج احتياطية للعرض</div></div>
+<section class="hero"><div class="heroCard"><div class="eyebrow">مهمة واحدة · طبقات متعددة من الذكاء</div><h2>توقف عن المراقبة.<br><span>ابدأ بالتصرف.</span></h2><p class="lead">يراقب NEXUS المنتجات والمنافسين والموردين والأنظمة، ثم يربط الإشارات ويحلل أثرها ويحوّلها إلى إجراء عملي.</p><div class="mission"><textarea id="mission" rows="2">ابحث عن لابتوب بسعر مستهدف 3,000 ريال، وقارن السوق واكتشف أفضل فرصة شراء تستحق إجراءً.</textarea><a id="run" class="runBtn" href="#workspace">جرّب NEXUS الآن</a></div><div class="quick"><button class="chip" data-m="راقب أسعار الأجهزة واكتشف أي فرصة شراء أو تسعير تستحق الإجراء.">المنتجات والأسعار</button><button class="chip" data-m="راقب المنافسين واكتشف إطلاقات المنتجات والتغييرات المهمة في الأسعار والعروض.">المنافسون</button><button class="chip" data-m="راقب الموردين واكتشف تغيّر الأسعار والتوفر والبدائل ذات الأثر التجاري.">الموردون</button><button class="chip" data-m="راقب الجهات الرسمية واكتشف أي تحديث تنظيمي قد يؤثر على أعمالنا.">الجهات والأنظمة</button></div><div class="flow"><span>يكتشف</span><i>→</i><span>يفهم</span><i>→</i><span>يقرر</span><i>→</i><strong>ينفّذ</strong></div></div>
+<div class="sideCard"><div class="sideTitle"><span>ذكاء لحظي</span><span class="liveStatus"><i></i> يراقب الآن</span></div><div class="domainStrip"><span>المنتجات والأسعار</span><span>المنافسون</span><span>الموردون</span><span>الجهات والأنظمة</span></div><div class="pulse"><div class="ring r3"></div><div class="ring r2"></div><div class="ring r1"></div><div class="core"></div></div><div class="kpis"><div class="kpi"><b>127</b><span>مصدر</span></div><div class="kpi"><b>18</b><span>إشارة</span></div><div class="kpi"><b>04</b><span>إجراء</span></div></div></div></section>
+<section class="workspace" id="workspace"><div class="bar"><div><div class="missionLabel">المهمة النشطة · NEXUS ينفّذ الآن</div><div id="missionDisplay" class="missionValue"></div></div><div class="execState" id="execState"><i class="miniDot"></i><span>بانتظار التشغيل</span></div><div class="demoSwitch"><button data-mode="observe" class="active">مراقبة</button><button data-mode="reason">تحليل</button><button data-mode="act">تنفيذ</button></div></div>
+<div class="grid"><div class="box"><div class="boxHead"><span>تنفيذ الوكيل</span><span id="progressTxt">0%</span></div><div class="boxBody timeline" id="timeline"></div></div><div class="box"><div class="boxHead"><span>سجل القرارات</span><span>قابل للتتبع</span></div><div class="boxBody log" id="log"></div></div><div class="box"><div class="boxHead"><span>الذكاء المكتشف</span><span>مرتب حسب الأولوية</span></div><div class="boxBody findings" id="findings"></div></div></div>
+<div class="insightPanel" id="insightPanel"><div class="insightHead"><div><div class="eyebrow">تحليل NEXUS</div><h3>لماذا هذه الإشارة مهمة؟</h3></div><div class="scorePill" id="decisionScore">ثقة القرار 93%</div></div><div class="reasonGrid"><div class="reasonCard"><span>الدليل</span><b id="evidenceCount">3 مصادر</b><p id="evidenceReason">سيناريو عرض جاهز يوضح كيف يعمل محرك القرار.</p></div><div class="reasonCard"><span>الأثر</span><b id="impactText">تأثير تجاري محتمل</b><p id="impactReason">قد يستدعي مراجعة التسعير أو التموضع أو التوفر.</p></div><div class="reasonCard"><span>الإجراء المقترح</span><b id="actionText">مراجعة + متابعة</b><p id="actionReason">NEXUS يقترح الخطوة التالية بدل الاكتفاء بالتنبيه.</p></div></div><div class="evidenceStrip" id="evidenceStrip"></div></div>
+<div class="result" id="result"><div class="decisionBadge">✓ القرار جاهز للتنفيذ</div><div class="resultTop"><div><div class="eyebrow">توصية NEXUS</div><h3 id="resultTitle">تم اكتشاف فرصة استراتيجية</h3></div><div class="metric">الثقة <b id="confidence">94%</b></div></div><p id="resultText" style="color:#9eb5c1;font-size:12px;line-height:1.6;margin:9px 0 0"></p><div class="actionRow"><span class="action primary" id="createAction">✓ إنشاء خطة إجراء</span><span class="action" id="openEvidence">فتح الأدلة</span><span class="action">إسناد للفريق</span><span class="action">تصدير سجل التدقيق</span></div></div>
+</section>
+<div class="footer">نموذج LEAP · مصادر ويب حية عند توفر الاتصال · نتائج احتياطية للعرض</div>
+</div>
 <script>
-const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);const mission=$('#mission'),run=$('#run'),workspace=$('#workspace'),timeline=$('#timeline'),log=$('#log'),findings=$('#findings'),result=$('#result'),progressTxt=$('#progressTxt');
+const $=s=>document.querySelector(s); const $$=s=>document.querySelectorAll(s);
+const mission=$('#mission'), run=$('#run'), workspace=$('#workspace'), timeline=$('#timeline'), log=$('#log'), findings=$('#findings'), result=$('#result'), progressTxt=$('#progressTxt');
 const steps=[['استلام المهمة','فهم الهدف والقيود ومعايير النجاح.'],['اكتشاف المصادر','ربط مصادر المنتجات والمنافسين والموردين والمصادر الرسمية ذات الصلة.'],['استخراج الإشارات','توحيد التغيّرات في الأسعار والإطلاقات والتوفر والأنظمة.'],['ربط الإشارات وتحليلها','ربط الإشارات المستقلة وتقييم أثرها التجاري.'],['اتخاذ القرار','اختيار الإجراء الأعلى قيمة بناءً على الأدلة ودرجة الثقة.'],['تنفيذ الإجراء','إنشاء الخطوة التالية القابلة للتنفيذ وحفظ سجل تدقيق كامل.']];
-function addLog(t,c=''){const d=document.createElement('div');d.className=c;d.textContent=t;log.appendChild(d);log.scrollTop=log.scrollHeight}const FALLBACK_FINDINGS=[{tag:'فرصة',cls:'opp',title:'إشارة سوقية قوية',body:'تم رصد تغير تجاري يستحق المراجعة وربطه بإشارات المنافسين والموردين.',score:93},{tag:'منافس',cls:'high',title:'تغير في نشاط منافس',body:'ظهرت تحديثات حديثة في السوق يمكن أن تؤثر على التموضع أو التسعير.',score:88},{tag:'تنظيمي',cls:'info',title:'تحديث يحتاج مراجعة',body:'تم رصد نتيجة من مصدر رسمي؛ يضع NEXUS علامة للمراجعة البشرية قبل التنفيذ.',score:79}];
-function esc(v){return String(v??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]))}function showFallbackFindings(){findings.innerHTML=FALLBACK_FINDINGS.map((f,i)=>`<div class="finding" data-f="${i}"><span class="tag ${f.cls}">${f.tag}</span><b>${f.title}</b><p>${f.body}</p><div class="confidence"><span>قوة الإشارة</span><span>${f.score}%</span></div><div class="barline"><i style="width:${f.score}%"></i></div><div class="sourceLine"><span class="fallbackBadge liveBadge">وضع العرض</span><span>بيانات احتياطية</span></div></div>`).join('')}
-async function fetchFeed(query){const rss=`https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ar&gl=SA&ceid=SA:ar`;const api=`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rss)}&count=5`;const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),6500);try{const res=await fetch(api,{signal:controller.signal,cache:'no-store'});if(!res.ok)throw Error('HTTP '+res.status);const data=await res.json();if(data.status!=='ok')throw Error(data.message||'RSS failed');return(data.items||[]).map(x=>({title:x.title,link:x.link,pubDate:x.pubDate})).filter(x=>x.title)}finally{clearTimeout(timer)}}
-function classifyLive(results){const all=[...results.products.map(x=>({...x,kind:'المنتجات'}),),...results.competitors.map(x=>({...x,kind:'المنافسون'})),...results.regulation.map(x=>({...x,kind:'الأنظمة'}))];const seen=new Set();return all.filter(x=>{const k=x.title.toLowerCase();if(seen.has(k))return false;seen.add(k);return true}).slice(0,3)}
-function showLiveFindings(items){const palette=[{tag:'إشارة',cls:'opp',score:91},{tag:'منافس',cls:'high',score:86},{tag:'تنظيمي',cls:'info',score:78}];findings.innerHTML=items.length?items.map((x,i)=>{const p=palette[i%palette.length];return `<div class="finding" data-f="${i}"><span class="tag ${p.cls}">${p.tag}</span><b>${esc(x.title)}</b><p>إشارة حية التقطها NEXUS من نتائج الويب، وتحتاج طبقة التحليل إلى تقييم علاقتها بالمهمة الحالية.</p><div class="confidence"><span>ثقة الاستخراج</span><span>${p.score}%</span></div><div class="barline"><i style="width:${p.score}%"></i></div><div class="sourceLine"><span class="liveBadge"><i></i> مصدر حي</span><a class="sourceLink" href="${esc(x.link)}" target="_blank" rel="noopener">فتح المصدر ↗</a></div></div>`}).join(''):'';[...findings.querySelectorAll('.finding')].forEach((c,i)=>setTimeout(()=>c.classList.add('reveal'),200+i*220))}
-async function runMission(){workspace.classList.add('on');setTimeout(()=>workspace.scrollIntoView({behavior:'smooth',block:'start'}),120);result.classList.remove('show');const insight=$('#insightPanel');if(insight)insight.classList.remove('show');timeline.innerHTML='';log.innerHTML='';findings.innerHTML='';$('#missionDisplay').textContent=mission.value;const state=$('#execState');state.className='execState running';state.innerHTML='<i class="miniDot"></i><span>يعمل الآن</span>';const nodes=[];steps.forEach((s,i)=>{const e=document.createElement('div');e.className='step';e.innerHTML=`<div class="stepDot">${i+1}</div><div><div class="stepTitle">${s[0]}</div><div class="stepDesc">${s[1]}</div></div>`;timeline.appendChild(e);nodes.push(e)});const t0=new Date(),stamp=()=>t0.toLocaleTimeString('ar-SA',{hour12:false}),logs=(m,c)=>addLog(`${stamp()}  ${m}`,c);nodes[0].classList.add('active');progressTxt.textContent='8%';logs('تم قبول المهمة · تحويل الطلب إلى خطة تنفيذ متعددة المصادر','ok');await new Promise(r=>setTimeout(r,450));nodes[0].classList.remove('active');nodes[0].classList.add('done');nodes[1].classList.add('active');progressTxt.textContent='24%';logs('بدء اكتشاف المصادر الحية','ok');const queries={products:'لابتوبات أسعار السعودية',competitors:'لابتوبات منافسين السعودية إطلاق جديد',regulation:'السعودية تنظيم أجهزة إلكترونية لابتوبات'};let live=null;try{const [products,competitors,regulation]=await Promise.all([fetchFeed(queries.products),fetchFeed(queries.competitors),fetchFeed(queries.regulation)]);live={products,competitors,regulation};const total=products.length+competitors.length+regulation.length;logs(`تم جمع ${total} نتيجة حديثة من ثلاث طبقات بحث`,'ok');nodes[1].classList.remove('active');nodes[1].classList.add('done')}catch(e){logs('تعذر الوصول المباشر · تفعيل وضع العرض الاحتياطي','warn');showFallbackFindings();nodes[1].classList.remove('active');nodes[1].classList.add('done')}nodes[2].classList.add('active');progressTxt.textContent='41%';logs('استخراج الإشارات وتصفية النتائج حسب المهمة','ok');await new Promise(r=>setTimeout(r,600));let items=[];if(live){items=classifyLive(live);showLiveFindings(items);logs(`تم اختيار ${items.length} إشارات أولية قابلة للتحليل`,'dim')}else{[...findings.querySelectorAll('.finding')].forEach((c,i)=>setTimeout(()=>c.classList.add('reveal'),120+i*180));items=FALLBACK_FINDINGS.map((f,i)=>({title:f.title,link:'#',kind:i===0?'المنتجات':i===1?'المنافسون':'الأنظمة'}));logs('تم تحميل إشارات العرض لتثبيت سيناريو العرض','dim')}nodes[2].classList.remove('active');nodes[2].classList.add('done');nodes[3].classList.add('active');progressTxt.textContent='57%';logs('ربط الإشارات: منتج + منافس + جهة رسمية','ok');await new Promise(r=>setTimeout(r,800));logs('نتيجة الربط: توجد إشارة تستحق قرارًا تشغيليًا','ok');const score=live?Math.min(96,86+Math.min(items.length,3)*3):93,evidenceCount=live?(items.length||0):3;if($('#decisionScore'))$('#decisionScore').textContent=`ثقة القرار ${score}%`;if($('#evidenceCount'))$('#evidenceCount').textContent=`${evidenceCount} مصادر`;if($('#evidenceReason'))$('#evidenceReason').textContent=live?'تم دعم التحليل بنتائج ويب حديثة قابلة للفتح.':'سيناريو عرض جاهز يوضح كيف يعمل محرك القرار.';if($('#impactText'))$('#impactText').textContent='تأثير تجاري محتمل';if($('#impactReason'))$('#impactReason').textContent='قد يستدعي مراجعة التسعير أو التموضع أو التوفر.';if($('#actionText'))$('#actionText').textContent='مراجعة + متابعة';if($('#actionReason'))$('#actionReason').textContent='NEXUS يقترح الخطوة التالية بدل الاكتفاء بالتنبيه.';if($('#evidenceStrip'))$('#evidenceStrip').innerHTML=items.slice(0,3).map((x,i)=>`<div class="evidenceItem"><span>${esc(x.title||('إشارة '+(i+1)))}</span>${x.link&&x.link!=='#'?`<a href="${esc(x.link)}" target="_blank" rel="noopener">فتح الدليل ↗</a>`:'<span>دليل العرض</span>'}</div>`).join('');nodes[3].classList.remove('active');nodes[3].classList.add('done');nodes[4].classList.add('active');progressTxt.textContent='74%';logs('اتخاذ القرار: اختيار الإجراء الأقل مخاطرة والأعلى قيمة','ok');await new Promise(r=>setTimeout(r,700));nodes[4].classList.remove('active');nodes[4].classList.add('done');nodes[5].classList.add('active');progressTxt.textContent='91%';logs('تحويل القرار إلى خطة إجراء قابلة للمراجعة','warn');await new Promise(r=>setTimeout(r,650));nodes[5].classList.remove('active');nodes[5].classList.add('done');progressTxt.textContent='100%';logs('اكتملت المهمة · القرار موثق والإجراء جاهز','ok');state.className='execState done';state.innerHTML='<i class="miniDot"></i><span>الإجراء جاهز</span>';$('#resultTitle').textContent=live?'تم اكتشاف فرصة تستحق المتابعة':'تم اكتشاف فرصة استراتيجية';$('#resultText').textContent=live?'ربط NEXUS إشارات حديثة من نتائج الويب وقدم توصية تشغيلية قابلة للمراجعة. يمكن فتح الأدلة ثم إنشاء خطة الإجراء.':'يعرض NEXUS هنا كيف ينتقل من الإشارة إلى القرار، مع فصل واضح بين الأدلة والتوصية وخطوة التنفيذ.';$('#confidence').textContent=`${score}%`;$('#auditLine').textContent=live?'سجل التدقيق: LIVE-WEB-SCAN · مصادر حية · تحليل متعدد الإشارات · قرار موثق':'سجل التدقيق: DEMO-SCENARIO · محاكاة متعددة الإشارات · قرار موثق';if(insight)insight.classList.add('show');result.classList.add('show')}
-run.onclick=e=>{e.preventDefault();history.replaceState(null,'','#workspace');runMission()};$$('.chip').forEach(c=>c.onclick=()=>{mission.value=c.dataset.m;runMission()});const createAction=$('#createAction');if(createAction)createAction.onclick=()=>{createAction.classList.add('done');createAction.textContent='✓ تم إنشاء خطة الإجراء';const audit=$('#auditLine');if(audit)audit.textContent='سجل التدقيق: ACTION-CREATED · NX-7F42-LEAP · خطة الإجراء أُنشئت بنجاح';const state=$('#execState');if(state){state.className='execState done';state.innerHTML='<i class="miniDot"></i><span>الإجراء جاهز</span>'}if($('#actionText'))$('#actionText').textContent='الخطة جاهزة للتنفيذ';if($('#actionReason'))$('#actionReason').textContent='تم تحويل القرار إلى خطوة تشغيلية يمكن إسنادها للفريق.'};const openEvidence=$('#openEvidence');if(openEvidence)openEvidence.onclick=()=>{const audit=$('#auditLine');if(audit)audit.textContent='الأدلة: نتائج ويب · إشارات مستخرجة · روابط سببية · مستوى ثقة · قابل للتدقيق';const insight=$('#insightPanel');if(insight)insight.classList.add('show');insight?.scrollIntoView({behavior:'smooth',block:'center'})};$$('.demoSwitch button').forEach(b=>b.onclick=()=>{$$('.demoSwitch button').forEach(x=>x.classList.remove('active'));b.classList.add('active');const m=b.dataset.mode;if(m==='observe')mission.value='راقب المنتجات والمنافسين والموردين والجهات الرسمية واكتشف التغيّرات المهمة.';if(m==='reason')mission.value='اربط الإشارات المختلفة وحدد الفرصة أو المخاطر الأكثر تأثيرًا.';if(m==='act')mission.value='بعد التحقق، حوّل أهم إشارة إلى إجراء قابل للتنفيذ مع سجل تدقيق.'});
-</script></body></html>
+function addLog(t,c=''){const d=document.createElement('div');d.className=c;d.textContent=t;log.appendChild(d);log.scrollTop=log.scrollHeight}
+
+const FALLBACK_FINDINGS = [
+  {tag:'فرصة شراء', cls:'opp', title:'لابتوب Lenovo IdeaPad 5 بسعر 2,899 ريال', body:'أقل من السعر المستهدف 3,000 ريال بـ101 ريال، مع قيمة شراء قوية ضمن النطاق المطلوب.', score:94, price:'2,899 ريال', delta:'−101 ريال'},
+  {tag:'مطابقة قوية', cls:'info', title:'لابتوب ASUS VivoBook 15 بسعر 2,999 ريال', body:'مطابقة شبه مثالية للهدف السعري؛ الفارق ريال واحد فقط عن 3,000 ريال.', score:91, price:'2,999 ريال', delta:'−1 ريال'},
+  {tag:'للمقارنة', cls:'high', title:'لابتوب HP 15 بسعر 3,149 ريال', body:'فوق الميزانية المستهدفة بـ149 ريال؛ لا يتفوق بما يكفي لتبرير الزيادة.', score:82, price:'3,149 ريال', delta:'+149 ريال'}
+];
+
+function esc(v){
+  return String(v ?? '').replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+}
+
+function showFallbackFindings(){
+  findings.innerHTML=FALLBACK_FINDINGS.map((f,i)=>`
+    <div class="finding" data-f="${i}">
+      <span class="tag ${f.cls}">${f.tag}</span><b>${f.title}</b>
+      <p>${f.body}</p>
+      <div class="confidence"><span>السعر مقابل الهدف</span><span>${f.delta}</span></div>
+      <div class="barline"><i style="width:${f.score}%"></i></div>
+      <div class="sourceLine"><span class="fallbackBadge liveBadge">بيانات العرض</span><span>مطابقة سعرية</span></div>
+    </div>`).join('');
+}
+
+async function fetchFeed(query){
+  const rss=`https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ar&gl=SA&ceid=SA:ar`;
+  const api=`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rss)}&count=5`;
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),6500);
+  try{
+    const res=await fetch(api,{signal:controller.signal,cache:'no-store'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data=await res.json();
+    if(data.status!=='ok') throw new Error(data.message||'RSS failed');
+    return (data.items||[]).map(x=>({title:x.title,link:x.link,pubDate:x.pubDate})).filter(x=>x.title);
+  } finally { clearTimeout(timer); }
+}
+
+function classifyLive(results){
+  const all=[
+    ...results.products.map(x=>({...x,kind:'المنتجات'})),
+    ...results.competitors.map(x=>({...x,kind:'المنافسون'})),
+    ...results.regulation.map(x=>({...x,kind:'الأنظمة'}))
+  ];
+  const seen=new Set();
+  return all.filter(x=>{const k=x.title.toLowerCase(); if(seen.has(k)) return false; seen.add(k); return true;}).slice(0,3);
+}
+
+function showLiveFindings(items){
+  const palette=[
+    {tag:'إشارة',cls:'opp',score:91},
+    {tag:'منافس',cls:'high',score:86},
+    {tag:'تنظيمي',cls:'info',score:78}
+  ];
+  findings.innerHTML=items.length ? items.map((x,i)=>{
+    const p=palette[i%palette.length];
+    return `<div class="finding liveFinding" data-f="${i}">
+      <span class="tag ${p.cls}">${p.tag}</span>
+      <b>${esc(x.title)}</b>
+      <p>إشارة حية التقطها NEXUS من نتائج الويب، وتحتاج طبقة التحليل إلى تقييم علاقتها بالمهمة الحالية.</p>
+      <div class="confidence"><span>ثقة الاستخراج</span><span>${p.score}%</span></div>
+      <div class="barline"><i style="width:${p.score}%"></i></div>
+      <div class="sourceLine">
+        <span class="liveBadge"><i></i> مصدر حي</span>
+        <a class="sourceLink" href="${esc(x.link)}" target="_blank" rel="noopener">فتح المصدر ↗</a>
+      </div>
+    </div>`;
+  }).join('') : '';
+  [...findings.querySelectorAll('.finding')].forEach((c,i)=>setTimeout(()=>c.classList.add('reveal'),200+i*220));
+}
+
+async function runMission(){
+  workspace.classList.add('on');
+  setTimeout(()=>workspace.scrollIntoView({behavior:'smooth',block:'start'}),120);
+  result.classList.remove('show');
+  const insight=$('#insightPanel'); if(insight) insight.classList.remove('show');
+  timeline.innerHTML=''; log.innerHTML=''; findings.innerHTML='';
+  $('#missionDisplay').textContent=mission.value;
+
+  const state=$('#execState');
+  state.className='execState running';
+  state.innerHTML='<i class="miniDot"></i><span>يعمل الآن</span>';
+
+  const nodes=[];
+  steps.forEach((s,i)=>{
+    const e=document.createElement('div');
+    e.className='step';
+    e.innerHTML=`<div class="stepDot">${i+1}</div><div><div class="stepTitle">${s[0]}</div><div class="stepDesc">${s[1]}</div></div>`;
+    timeline.appendChild(e); nodes.push(e);
+  });
+
+  const t0=new Date();
+  const stamp=()=>t0.toLocaleTimeString('ar-SA',{hour12:false});
+  const logs=(m,c)=>addLog(`${stamp()}  ${m}`,c);
+
+  nodes[0].classList.add('active'); progressTxt.textContent='8%';
+  logs('تم قبول المهمة · تحويل الطلب إلى خطة تنفيذ متعددة المصادر','ok');
+  await new Promise(r=>setTimeout(r,450));
+  nodes[0].classList.remove('active'); nodes[0].classList.add('done');
+
+  nodes[1].classList.add('active'); progressTxt.textContent='24%';
+  logs('بدء اكتشاف المصادر الحية','ok');
+  const queries={
+    products:'لابتوبات أسعار السعودية',
+    competitors:'لابتوبات منافسين السعودية إطلاق جديد',
+    regulation:'السعودية تنظيم أجهزة إلكترونية لابتوبات'
+  };
+  let live=null;
+  try{
+    const [products,competitors,regulation]=await Promise.all([
+      fetchFeed(queries.products), fetchFeed(queries.competitors), fetchFeed(queries.regulation)
+    ]);
+    live={products,competitors,regulation};
+    const total=products.length+competitors.length+regulation.length;
+    logs(`تم جمع ${total} نتيجة حديثة من ثلاث طبقات بحث`,'ok');
+    nodes[1].classList.remove('active'); nodes[1].classList.add('done');
+  }catch(e){
+    logs('تعذر الوصول المباشر · تفعيل وضع العرض الاحتياطي','warn');
+    showFallbackFindings();
+    nodes[1].classList.remove('active'); nodes[1].classList.add('done');
+  }
+
+  nodes[2].classList.add('active'); progressTxt.textContent='41%';
+  logs('استخراج الإشارات وتصفية النتائج حسب المهمة','ok');
+  await new Promise(r=>setTimeout(r,600));
+
+  let items=[];
+  if(live){
+    items=classifyLive(live);
+    showLiveFindings(items);
+    logs(`تم اختيار ${items.length} إشارات أولية قابلة للتحليل`,'dim');
+  }else{
+    [...findings.querySelectorAll('.finding')].forEach((c,i)=>setTimeout(()=>c.classList.add('reveal'),120+i*180));
+    items=FALLBACK_FINDINGS.map((f,i)=>({title:f.title,link:'#',kind:i===0?'المنتجات':i===1?'المنافسون':'الأنظمة'}));
+    logs('تم تحميل إشارات العرض لتثبيت سيناريو العرض','dim');
+  }
+  nodes[2].classList.remove('active'); nodes[2].classList.add('done');
+
+  nodes[3].classList.add('active'); progressTxt.textContent='57%';
+  logs('ربط الإشارات: منتج + منافس + جهة رسمية','ok');
+  await new Promise(r=>setTimeout(r,800));
+  logs('نتيجة الربط: توجد إشارة تستحق قرارًا تشغيليًا','ok');
+
+  const priceMission = /3\s*,?\s*000|3000|ثلاثة آلاف/.test(mission.value);
+  const score = priceMission ? (live ? Math.min(97, 88 + Math.min(items.length,3)*3) : 94) : (live ? Math.min(96, 86 + Math.min(items.length,3)*3) : 93);
+  const evidenceCount = live ? (items.length || 0) : 3;
+  if($('#decisionScore')) $('#decisionScore').textContent=`ثقة القرار ${score}%`;
+  if($('#evidenceCount')) $('#evidenceCount').textContent=`${evidenceCount} مصادر`;
+  if($('#evidenceReason')) $('#evidenceReason').textContent = live
+    ? 'تم دعم التحليل بنتائج ويب حديثة قابلة للفتح.'
+    : 'سيناريو عرض جاهز يوضح كيف يعمل محرك القرار.';
+  const isPriceMission = /3\s*,?\s*000|3000|ثلاثة آلاف/.test(mission.value);
+  if(isPriceMission){
+    if($('#decisionScore')) $('#decisionScore').textContent=`ثقة القرار ${live ? Math.min(97,score+1) : 94}%`;
+    if($('#evidenceCount')) $('#evidenceCount').textContent=`3 مطابقة سعرية`;
+    if($('#evidenceReason')) $('#evidenceReason').textContent='تمت مقارنة عروض ضمن نطاق 3,000 ريال وتحديد الأقرب للهدف.';
+    if($('#impactText')) $('#impactText').textContent='فارق سعري واضح';
+    if($('#impactReason')) $('#impactReason').textContent='أفضل مطابقة أقل من الهدف بـ101 ريال، مع بديل شبه مطابق بفارق ريال واحد.';
+    if($('#actionText')) $('#actionText').textContent='ترشيح + متابعة';
+    if($('#actionReason')) $('#actionReason').textContent='NEXUS يوصي بترشيح العرض الأقرب للقيمة ثم متابعة تغيّر السعر قبل الشراء.';
+  } else {
+    if($('#impactText')) $('#impactText').textContent='تأثير تجاري محتمل';
+    if($('#impactReason')) $('#impactReason').textContent='قد يستدعي مراجعة التسعير أو التموضع أو التوفر.';
+    if($('#actionText')) $('#actionText').textContent='مراجعة + متابعة';
+    if($('#actionReason')) $('#actionReason').textContent='NEXUS يقترح الخطوة التالية بدل الاكتفاء بالتنبيه.';
+  }
+  if($('#evidenceStrip')){
+    $('#evidenceStrip').innerHTML = items.slice(0,3).map((x,i)=>`
+      <div class="evidenceItem">
+        <span>${esc(x.title || ('إشارة '+(i+1)))}</span>
+        ${x.link && x.link !== '#' ? `<a href="${esc(x.link)}" target="_blank" rel="noopener">فتح الدليل ↗</a>` : '<span>دليل العرض</span>'}
+      </div>`).join('');
+  }
+
+  nodes[3].classList.remove('active'); nodes[3].classList.add('done');
+
+  nodes[4].classList.add('active'); progressTxt.textContent='74%';
+  logs('اتخاذ القرار: اختيار الإجراء الأقل مخاطرة والأعلى قيمة','ok');
+  await new Promise(r=>setTimeout(r,700));
+  nodes[4].classList.remove('active'); nodes[4].classList.add('done');
+
+  nodes[5].classList.add('active'); progressTxt.textContent='91%';
+  logs('تحويل القرار إلى خطة إجراء قابلة للمراجعة','warn');
+  await new Promise(r=>setTimeout(r,650));
+  nodes[5].classList.remove('active'); nodes[5].classList.add('done');
+
+  progressTxt.textContent='100%';
+  logs('اكتملت المهمة · القرار موثق والإجراء جاهز','ok');
+  state.className='execState done';
+  state.innerHTML='<i class="miniDot"></i><span>الإجراء جاهز</span>';
+
+  const resultPriceMission = /3\s*,?\s*000|3000|ثلاثة آلاف/.test(mission.value);
+  $('#resultTitle').textContent = resultPriceMission ? 'تم اكتشاف أفضل فرصة ضمن 3,000 ريال' : (live ? 'تم اكتشاف فرصة تستحق المتابعة' : 'تم اكتشاف فرصة استراتيجية');
+  $('#resultText').textContent = resultPriceMission
+    ? 'حدد NEXUS عرضًا بسعر 2,899 ريال، أي أقل من الهدف بـ101 ريال، مع بديل قريب جدًا بسعر 2,999 ريال. التوصية الآن هي الترشيح والمتابعة قبل اتخاذ قرار الشراء.'
+    : (live ? 'ربط NEXUS إشارات حديثة من نتائج الويب وقدم توصية تشغيلية قابلة للمراجعة. يمكن فتح الأدلة ثم إنشاء خطة الإجراء.'
+    : 'يعرض NEXUS هنا كيف ينتقل من الإشارة إلى القرار، مع فصل واضح بين الأدلة والتوصية وخطوة التنفيذ.');
+  $('#confidence').textContent = `${score}%`;
+  result.classList.add('show');
+  if(insight) insight.classList.add('show');
+  if($('#createAction')) $('#createAction').onclick=()=>{ $('#createAction').textContent='✓ تم إنشاء خطة الإجراء'; $('#createAction').classList.add('done'); addLog('تم إنشاء خطة الإجراء · جاهزة للإسناد','ok'); state.className='execState done'; state.innerHTML='<i class="miniDot"></i><span>الإجراء جاهز</span>'; };
+  if($('#openEvidence')) $('#openEvidence').onclick=()=>{ insight?.classList.add('show'); insight?.scrollIntoView({behavior:'smooth',block:'center'}); };
+}
+
+run.addEventListener('click',e=>{e.preventDefault(); runMission();});
+$$('.chip').forEach(c=>c.addEventListener('click',()=>{mission.value=c.dataset.m; mission.focus();}));
+$$('.demoSwitch button').forEach(b=>b.addEventListener('click',()=>{$$('.demoSwitch button').forEach(x=>x.classList.remove('active'));b.classList.add('active');const m=b.dataset.mode;if(m==='observe') mission.value='راقب المنتجات والمنافسين والموردين والجهات الرسمية واكتشف التغيّرات المهمة.';if(m==='reason') mission.value='اربط الإشارات المختلفة وحدد الفرصة أو المخاطر الأكثر تأثيرًا.';if(m==='act') mission.value='بعد التحقق، حوّل أهم إشارة إلى إجراء قابل للتنفيذ مع سجل تدقيق.';}));
+</script>
+</body>
+</html>
