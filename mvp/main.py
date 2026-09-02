@@ -79,6 +79,7 @@ class AuditEvent(BaseModel):
     timestamp: str
     stage: str
     message: str
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class ResearchSummary(BaseModel):
@@ -239,6 +240,21 @@ def _audit_timestamp(mission: MissionState, stage: str) -> str | None:
     return None
 
 
+def _audit_actor(principal: Principal, operation: str) -> dict[str, Any]:
+    return {
+        "operation": operation,
+        "actor": {
+            "subject": principal.subject,
+            "tenant_id": principal.tenant_id,
+            "role": principal.role.value,
+        },
+    }
+
+
+def _record_actor_audit(mission: MissionState, principal: Principal, operation: str, message: str) -> None:
+    mission.log("auth", message, **_audit_actor(principal, operation))
+
+
 def _to_api_mission(mission: MissionState) -> Mission:
     decision = _decision_from_core(mission)
     completed = sum(1 for item in mission.research_results if item.status == "completed")
@@ -268,7 +284,7 @@ def _to_api_mission(mission: MissionState) -> Mission:
             "verified_at": _audit_timestamp(mission, "verified"),
             "execution_id": mission.action_result.execution_id if mission.action_result else None,
         }
-    audit = [AuditEvent(timestamp=str(item.get("timestamp", "")), stage=str(item.get("stage", "")), message=str(item.get("message", ""))) for item in mission.audit]
+    audit = [AuditEvent(timestamp=str(item.get("timestamp", "")), stage=str(item.get("stage", "")), message=str(item.get("message", "")), metadata=dict(item.get("metadata", {}))) for item in mission.audit]
     valid_sources = {item.value for item in SourceType}
     sources = {SourceType(str(ev.source)) if str(ev.source) in valid_sources else SourceType.UNKNOWN for ev in mission.context.evidence.values()}
     return Mission(id=mission.id, tenant_id=mission.tenant_id, created_at=audit[0].timestamp if audit else utc_now(), status=_status_for_stage(mission.stage), goal=mission.goal, constraints=mission.constraints, sources_used=sorted(sources, key=lambda value: value.value), signals=_signals_from_core(mission), research=ResearchSummary(domains=mission.goal_plan.domains() if mission.goal_plan else [], completed=completed, unavailable=unavailable, evidence_added=evidence_added), decision=decision, action=action, verification=verification, audit=audit)
@@ -325,13 +341,14 @@ def list_ingested(tenant_id: str = Depends(tenant_context), role: ActorRole = De
 
 
 @app.post("/api/missions", response_model=Mission, status_code=201)
-def create_mission(request: MissionRequest, tenant_id: str = Depends(tenant_context), role: ActorRole = Depends(role_context)) -> Mission:
-    require_role(role, {ActorRole.OPERATOR, ActorRole.ADMIN})
-    signals = sample_signals() + signals_from_ingestion(tenant_id)
+def create_mission(request: MissionRequest, principal: Principal = Depends(principal_context)) -> Mission:
+    require_role(principal.role, {ActorRole.OPERATOR, ActorRole.ADMIN})
+    signals = sample_signals() + signals_from_ingestion(principal.tenant_id)
     records = [{"supplier": signal.title, "monthly_spend": signal.value, "impact": signal.impact, "source": signal.source.value} for signal in signals]
-    mission = RUNTIME.orchestrator.create(tenant_id=tenant_id, goal=request.goal, constraints=request.constraints, records=records, source="api-signals")
+    mission = RUNTIME.orchestrator.create(tenant_id=principal.tenant_id, goal=request.goal, constraints=request.constraints, records=records, source="api-signals")
     RUNTIME.orchestrator.research(mission)
     RUNTIME.orchestrator.decide(mission)
+    _record_actor_audit(mission, principal, "create_mission", "تم إنشاء المهمة بواسطة هوية مصادقة.")
     return _save(mission)
 
 
@@ -351,9 +368,9 @@ def get_mission(mission_id: str, tenant_id: str = Depends(tenant_context), role:
 
 
 @app.post("/api/missions/{mission_id}/approve", response_model=Mission)
-def approve_mission(mission_id: str, tenant_id: str = Depends(tenant_context), role: ActorRole = Depends(role_context)) -> Mission:
-    require_role(role, {ActorRole.APPROVER, ActorRole.ADMIN})
-    mission = _get_core(tenant_id, mission_id)
+def approve_mission(mission_id: str, principal: Principal = Depends(principal_context)) -> Mission:
+    require_role(principal.role, {ActorRole.APPROVER, ActorRole.ADMIN})
+    mission = _get_core(principal.tenant_id, mission_id)
     if mission is None:
         raise HTTPException(status_code=404, detail="Mission not found")
     if mission.stage == "approved":
@@ -366,13 +383,14 @@ def approve_mission(mission_id: str, tenant_id: str = Depends(tenant_context), r
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    _record_actor_audit(mission, principal, "approve_mission", "تم اعتماد الإجراء بواسطة هوية مصادقة.")
     return _save(mission)
 
 
 @app.post("/api/missions/{mission_id}/execute", response_model=Mission)
-def execute_mission(mission_id: str, tenant_id: str = Depends(tenant_context), role: ActorRole = Depends(role_context)) -> Mission:
-    require_role(role, {ActorRole.OPERATOR, ActorRole.ADMIN})
-    mission = _get_core(tenant_id, mission_id)
+def execute_mission(mission_id: str, principal: Principal = Depends(principal_context)) -> Mission:
+    require_role(principal.role, {ActorRole.OPERATOR, ActorRole.ADMIN})
+    mission = _get_core(principal.tenant_id, mission_id)
     if mission is None:
         raise HTTPException(status_code=404, detail="Mission not found")
     if mission.stage in {"executed", "verified"}:
@@ -382,13 +400,14 @@ def execute_mission(mission_id: str, tenant_id: str = Depends(tenant_context), r
     result = RUNTIME.orchestrator.execute(mission)
     if result.stage != "executed":
         raise HTTPException(status_code=409, detail=mission.action_result.message if mission.action_result else "Execution failed")
+    _record_actor_audit(mission, principal, "execute_mission", "تم تنفيذ الإجراء بواسطة هوية مصادقة.")
     return _save(mission)
 
 
 @app.post("/api/missions/{mission_id}/verify", response_model=Mission)
-def verify_mission(mission_id: str, tenant_id: str = Depends(tenant_context), role: ActorRole = Depends(role_context)) -> Mission:
-    require_role(role, {ActorRole.OPERATOR, ActorRole.ADMIN})
-    mission = _get_core(tenant_id, mission_id)
+def verify_mission(mission_id: str, principal: Principal = Depends(principal_context)) -> Mission:
+    require_role(principal.role, {ActorRole.OPERATOR, ActorRole.ADMIN})
+    mission = _get_core(principal.tenant_id, mission_id)
     if mission is None:
         raise HTTPException(status_code=404, detail="Mission not found")
     if mission.stage == "verified":
@@ -398,4 +417,5 @@ def verify_mission(mission_id: str, tenant_id: str = Depends(tenant_context), ro
     result = RUNTIME.orchestrator.verify(mission)
     if result.stage != "verified":
         raise HTTPException(status_code=409, detail="Execution could not be verified")
+    _record_actor_audit(mission, principal, "verify_mission", "تم التحقق من النتيجة بواسطة هوية مصادقة.")
     return _save(mission)
