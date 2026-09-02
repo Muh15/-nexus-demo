@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from connectors.http_json_connector import HttpJsonConnector
+
 from .models import BusinessContext, Evidence
 from .research_planner import ResearchPlan, ResearchTask
 
@@ -70,6 +72,63 @@ def context_provider(connector: str, source: str, confidence: int = 80) -> Resea
             status="completed",
             evidence=evidence,
             message=f"Reused {len(evidence)} existing evidence items as MVP research input.",
+        )
+
+    return provide
+
+
+def http_json_provider(
+    connector: HttpJsonConnector,
+    url: str,
+    *,
+    confidence: int = 88,
+    headers: dict[str, str] | None = None,
+) -> ResearchProvider:
+    """Build a research provider backed by an allow-listed JSON HTTP source."""
+
+    endpoint = url.strip()
+    if not endpoint:
+        raise ValueError("HTTP research URL is required")
+
+    def provide(task: ResearchTask, context: BusinessContext) -> ResearchResult:
+        del context
+        try:
+            result = connector.fetch(endpoint, headers=headers)
+        except Exception as exc:
+            return ResearchResult(
+                task_domain=task.domain,
+                connector=task.connector,
+                status="unavailable",
+                message=f"HTTP research failed: {exc}",
+            )
+
+        evidence = [
+            Evidence(
+                id=f"research:http:{task.domain}:{index}",
+                source="http_json",
+                claim=task.question,
+                value=record,
+                confidence=confidence,
+                locator=provenance.get("locator"),
+                metadata={
+                    "domain": task.domain,
+                    "connector": task.connector,
+                    "task": task.reason,
+                    "url": endpoint,
+                    "sha256": result.metadata.get("sha256"),
+                    "status_code": result.metadata.get("status_code"),
+                },
+            )
+            for index, (record, provenance) in enumerate(
+                zip(result.records, result.provenance or [{} for _ in result.records]), start=1
+            )
+        ]
+        return ResearchResult(
+            task_domain=task.domain,
+            connector=task.connector,
+            status="completed",
+            evidence=evidence,
+            message=f"Collected {len(evidence)} records from the configured HTTP JSON source.",
         )
 
     return provide
