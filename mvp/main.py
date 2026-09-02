@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import os
+import re
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from connectors.file_connector import FileConnector
@@ -20,7 +21,7 @@ from core.sqlite_store import SQLiteMissionStore
 
 app = FastAPI(
     title="NEXUS MVP",
-    version="0.6.0",
+    version="0.7.0",
     description="Goal-driven AI intelligence: Observe → Understand → Research → Reason → Decide → Act → Verify",
 )
 
@@ -89,6 +90,7 @@ class ResearchSummary(BaseModel):
 
 class Mission(BaseModel):
     id: str
+    tenant_id: str
     created_at: str
     status: MissionStatus
     goal: str
@@ -116,15 +118,24 @@ SAMPLE_CONTEXT: dict[str, Any] = {
     },
 }
 
-INGESTED_DATA: list[dict[str, Any]] = []
+INGESTED_DATA: dict[str, list[dict[str, Any]]] = {}
 MISSION_DB_PATH = os.getenv("NEXUS_DB_PATH", "nexus_mvp.sqlite3")
 MISSION_STORE = SQLiteMissionStore(MISSION_DB_PATH)
-MISSIONS: dict[str, Mission] = {}
+MISSIONS: dict[tuple[str, str], Mission] = {}
 RUNTIME: MissionRuntime = build_runtime()
+TENANT_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$")
+DEFAULT_TENANT = os.getenv("NEXUS_DEFAULT_TENANT", "demo-tenant")
 
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def tenant_context(x_tenant_id: str | None = Header(default=None, alias="X-Tenant-ID")) -> str:
+    tenant_id = (x_tenant_id or DEFAULT_TENANT).strip()
+    if not TENANT_PATTERN.fullmatch(tenant_id):
+        raise HTTPException(status_code=400, detail="Invalid X-Tenant-ID")
+    return tenant_id
 
 
 def sample_signals() -> list[Signal]:
@@ -137,9 +148,9 @@ def sample_signals() -> list[Signal]:
     ]
 
 
-def signals_from_ingestion() -> list[Signal]:
+def signals_from_ingestion(tenant_id: str) -> list[Signal]:
     signals: list[Signal] = []
-    for idx, record in enumerate(INGESTED_DATA, start=1):
+    for idx, record in enumerate(INGESTED_DATA.get(tenant_id, []), start=1):
         supplier = record.get("supplier", "مصدر غير مسمى")
         spend = record.get("monthly_spend")
         change = record.get("price_change_pct")
@@ -173,18 +184,13 @@ def _context_from_signals(signals: list[Signal]) -> BusinessContext:
     return context
 
 
-def reason(goal: str, constraints: list[str], signals: list[Signal]) -> Decision:
-    decision = reason_from_evidence(goal, constraints, _context_from_signals(signals))
-    return Decision(**decision.as_dict())
-
-
-def _run_mission(goal: str, constraints: list[str], signals: list[Signal]):
+def _run_mission(goal: str, constraints: list[str], signals: list[Signal], tenant_id: str):
     records = [
         {"supplier": signal.title, "monthly_spend": signal.value, "impact": signal.impact, "source": signal.source.value}
         for signal in signals
     ]
     mission = RUNTIME.orchestrator.create(
-        tenant_id="demo-tenant",
+        tenant_id=tenant_id,
         goal=goal,
         constraints=constraints,
         records=records,
@@ -196,68 +202,75 @@ def _run_mission(goal: str, constraints: list[str], signals: list[Signal]):
 
 
 def _persist_mission(mission: Mission) -> Mission:
-    MISSIONS[mission.id] = mission
-    MISSION_STORE.save(mission.id, mission.model_dump(mode="json"), utc_now())
+    MISSIONS[(mission.tenant_id, mission.id)] = mission
+    MISSION_STORE.save(mission.id, mission.model_dump(mode="json"), utc_now(), tenant_id=mission.tenant_id)
     return mission
 
 
-def _load_mission(mission_id: str) -> Mission | None:
-    cached = MISSIONS.get(mission_id)
+def _load_mission(tenant_id: str, mission_id: str) -> Mission | None:
+    cached = MISSIONS.get((tenant_id, mission_id))
     if cached is not None:
         return cached
-    payload = MISSION_STORE.get(mission_id)
+    payload = MISSION_STORE.get(mission_id, tenant_id=tenant_id)
     if payload is None:
         return None
     mission = Mission.model_validate(payload)
-    MISSIONS[mission.id] = mission
+    MISSIONS[(tenant_id, mission.id)] = mission
     return mission
 
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "service": "nexus-mvp", "version": "0.6.0"}
+    return {"status": "ok", "service": "nexus-mvp", "version": "0.7.0"}
+
+
+@app.get("/api/runtime")
+def runtime_info() -> dict[str, Any]:
+    return {"registry": RUNTIME.registry.describe()}
 
 
 @app.get("/api/context")
-def context() -> dict[str, Any]:
+def context(tenant_id: str = Depends(tenant_context)) -> dict[str, Any]:
     return {
         **SAMPLE_CONTEXT,
-        "ingested_records": len(INGESTED_DATA),
-        "persisted_missions": len(MISSION_STORE.list_ids()),
+        "tenant_id": tenant_id,
+        "ingested_records": len(INGESTED_DATA.get(tenant_id, [])),
+        "persisted_missions": len(MISSION_STORE.list_ids(tenant_id=tenant_id)),
     }
 
 
 @app.post("/api/ingest/file")
-def ingest_file(request: IngestRequest) -> dict[str, Any]:
-    connector = FileConnector()
+def ingest_file(request: IngestRequest, tenant_id: str = Depends(tenant_context)) -> dict[str, Any]:
+    connector = RUNTIME.registry.connectors["file"]
     try:
         result = connector.ingest(request.content, filename=request.filename)
         normalized = normalize_records(result.records)
     except (ValueError, TypeError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    INGESTED_DATA.extend(normalized)
+    INGESTED_DATA.setdefault(tenant_id, []).extend(normalized)
     return {
         "status": "ingested",
+        "tenant_id": tenant_id,
         "source": result.source,
         "metadata": {**result.metadata, "normalized": True},
         "records_added": len(normalized),
-        "total_records": len(INGESTED_DATA),
+        "total_records": len(INGESTED_DATA[tenant_id]),
     }
 
 
 @app.get("/api/ingest")
-def list_ingested() -> dict[str, Any]:
-    return {"count": len(INGESTED_DATA), "records": INGESTED_DATA}
+def list_ingested(tenant_id: str = Depends(tenant_context)) -> dict[str, Any]:
+    records = INGESTED_DATA.get(tenant_id, [])
+    return {"tenant_id": tenant_id, "count": len(records), "records": records}
 
 
 @app.post("/api/missions", response_model=Mission, status_code=201)
-def create_mission(request: MissionRequest) -> Mission:
-    mission_id = f"NXS-{uuid4().hex[:10].upper()}"
+def create_mission(request: MissionRequest, tenant_id: str = Depends(tenant_context)) -> Mission:
     audit: list[AuditEvent] = []
     log_event(audit, "mission", "تم استلام المهمة وفهم الهدف والقيود.")
-    signals = sample_signals() + signals_from_ingestion()
-    log_event(audit, "observe", "تم جمع الإشارات من المصادر الحالية.")
-    core_mission = _run_mission(request.goal, request.constraints, signals)
+    signals = sample_signals() + signals_from_ingestion(tenant_id)
+    log_event(audit, "observe", "تم جمع الإشارات من المصادر المسموح بها ضمن مستأجر المهمة.")
+    core_mission = _run_mission(request.goal, request.constraints, signals, tenant_id)
     pending_count = len(core_mission.research_plan.pending()) if core_mission.research_plan else 0
     log_event(audit, "understand", f"تم بناء السياق وتحديد {pending_count} فجوات بحث.")
     log_event(audit, "research", "تم تنفيذ خطة البحث وجمع الأدلة المتاحة قبل القرار.")
@@ -269,7 +282,8 @@ def create_mission(request: MissionRequest) -> Mission:
     log_event(audit, "reason", "تم تقييم الأدلة والقيود لإنتاج قرار مبني على ما تم جمعه.")
     log_event(audit, "decide", f"القرار جاهز للاعتماد بثقة {decision.confidence}% من {decision.evidence_count} دليل.")
     mission = Mission(
-        id=mission_id,
+        id=core_mission.id,
+        tenant_id=tenant_id,
         created_at=utc_now(),
         status=MissionStatus.AWAITING_APPROVAL,
         goal=request.goal,
@@ -289,31 +303,30 @@ def create_mission(request: MissionRequest) -> Mission:
 
 
 @app.get("/api/missions", response_model=list[Mission])
-def list_missions() -> list[Mission]:
+def list_missions(tenant_id: str = Depends(tenant_context)) -> list[Mission]:
     missions: list[Mission] = []
-    for mission_id in MISSION_STORE.list_ids():
-        mission = _load_mission(mission_id)
+    for mission_id in MISSION_STORE.list_ids(tenant_id=tenant_id):
+        mission = _load_mission(tenant_id, mission_id)
         if mission is not None:
             missions.append(mission)
     return missions
 
 
 @app.get("/api/missions/{mission_id}", response_model=Mission)
-def get_mission(mission_id: str) -> Mission:
-    mission = _load_mission(mission_id)
+def get_mission(mission_id: str, tenant_id: str = Depends(tenant_context)) -> Mission:
+    mission = _load_mission(tenant_id, mission_id)
     if mission is None:
         raise HTTPException(status_code=404, detail="Mission not found")
     return mission
 
 
 @app.post("/api/missions/{mission_id}/approve", response_model=Mission)
-def approve_mission(mission_id: str) -> Mission:
-    mission = get_mission(mission_id)
+def approve_mission(mission_id: str, tenant_id: str = Depends(tenant_context)) -> Mission:
+    mission = get_mission(mission_id, tenant_id)
     if mission.status == MissionStatus.APPROVED:
         return mission
     if mission.status != MissionStatus.AWAITING_APPROVAL:
         raise HTTPException(status_code=409, detail="Mission is not awaiting approval")
-    action_plan = RUNTIME.orchestrator._action_executor
     proposed = plan_action(mission.decision.recommended_action, target="ABC Industrial")
     if not proposed.policy.allowed:
         raise HTTPException(status_code=403, detail=proposed.policy.reason)
@@ -333,8 +346,8 @@ def approve_mission(mission_id: str) -> Mission:
 
 
 @app.post("/api/missions/{mission_id}/execute", response_model=Mission)
-def execute_mission(mission_id: str) -> Mission:
-    mission = get_mission(mission_id)
+def execute_mission(mission_id: str, tenant_id: str = Depends(tenant_context)) -> Mission:
+    mission = get_mission(mission_id, tenant_id)
     if mission.status in {MissionStatus.EXECUTED, MissionStatus.VERIFIED}:
         return mission
     if mission.status != MissionStatus.APPROVED:
@@ -362,8 +375,8 @@ def execute_mission(mission_id: str) -> Mission:
 
 
 @app.post("/api/missions/{mission_id}/verify", response_model=Mission)
-def verify_mission(mission_id: str) -> Mission:
-    mission = get_mission(mission_id)
+def verify_mission(mission_id: str, tenant_id: str = Depends(tenant_context)) -> Mission:
+    mission = get_mission(mission_id, tenant_id)
     if mission.status == MissionStatus.VERIFIED:
         return mission
     if mission.status != MissionStatus.EXECUTED:
