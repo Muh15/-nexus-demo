@@ -58,8 +58,6 @@ Reasoner = Callable[[str, list[str], BusinessContext], dict[str, Any]]
 def _plain(value: Any) -> Any:
     if value is None or isinstance(value, (str, int, float, bool)):
         return value
-    if hasattr(value, "snapshot"):
-        return _plain(value.snapshot())
     if isinstance(value, dict):
         return {str(key): _plain(item) for key, item in value.items()}
     if isinstance(value, (list, tuple)):
@@ -74,9 +72,15 @@ def _plain(value: Any) -> Any:
 def _restore_context(data: dict[str, Any] | None) -> BusinessContext:
     context = BusinessContext()
     data = data or {}
-    for item in data.get("entities", []):
+    entities = data.get("entities", [])
+    if isinstance(entities, dict):
+        entities = list(entities.values())
+    for item in entities:
         context.add_entity(Entity(str(item["id"]), str(item["type"]), str(item["name"]), dict(item.get("attributes", {}))))
-    for item in data.get("evidence", []):
+    evidence_items = data.get("evidence", [])
+    if isinstance(evidence_items, dict):
+        evidence_items = list(evidence_items.values())
+    for item in evidence_items:
         context.add_evidence(Evidence(
             id=str(item["id"]), source=str(item.get("source", "")), claim=str(item.get("claim", "")),
             value=item.get("value"), confidence=int(item.get("confidence", 0)),
@@ -139,6 +143,7 @@ def _restore_action_result(data: dict[str, Any] | None) -> ActionResult | None:
     return ActionResult(
         action_type=str(data.get("action_type", "")), status=str(data.get("status", "")),
         output=dict(data.get("output", {})), message=str(data.get("message", "")),
+        execution_id=data.get("execution_id"),
     )
 
 
@@ -264,7 +269,7 @@ class MissionOrchestrator:
         if mission.action_result.status != "completed":
             mission.transition("execution_blocked", "تعذر تنفيذ الإجراء ضمن حدود التنفيذ الحالية.", status=mission.action_result.status)
             return mission
-        mission.transition("executed", "تم تنفيذ الإجراء عبر منفذ NEXUS المعتمد.", action_type=mission.action_result.action_type)
+        mission.transition("executed", "تم تنفيذ الإجراء عبر منفذ NEXUS المعتمد.", action_type=mission.action_result.action_type, execution_id=mission.action_result.execution_id)
         return mission
 
     def verify(self, mission: MissionState) -> MissionState:
@@ -272,7 +277,7 @@ class MissionOrchestrator:
         if mission.stage != "executed" or mission.action_result is None: raise ValueError("Successful execution is required before verification")
         mission.verification = self._verifier.verify(mission.action_result)
         target_stage = "verified" if mission.verification.status == "verified" else "verification_failed"
-        mission.transition(target_stage, "تمت مراجعة نتيجة التنفيذ والتحقق منها.", status=mission.verification.status)
+        mission.transition(target_stage, "تمت مراجعة نتيجة التنفيذ والتحقق منها.", status=mission.verification.status, execution_id=mission.action_result.execution_id)
         return mission
 
     def complete_demo_execution(self, mission: MissionState) -> MissionState:
