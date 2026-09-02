@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 
 from connectors.file_connector import FileConnector
 from connectors.normalize import normalize_records
-from core.action_executor import ActionExecutor, draft_email_handler
+from core.action_executor import ActionExecutor, ActionResult, draft_email_handler
 from core.models import BusinessContext, Evidence
 from core.orchestrator import MissionOrchestrator
 from core.planner import plan_action
@@ -22,7 +22,7 @@ from core.verifier import ActionVerifier, draft_email_verifier
 
 app = FastAPI(
     title="NEXUS MVP",
-    version="0.5.0",
+    version="0.5.1",
     description="Goal-driven AI intelligence: Observe → Understand → Research → Reason → Decide → Act → Verify",
 )
 
@@ -208,7 +208,7 @@ def _load_mission(mission_id: str) -> Mission | None:
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "service": "nexus-mvp", "version": "0.5.0"}
+    return {"status": "ok", "service": "nexus-mvp", "version": "0.5.1"}
 
 
 @app.get("/api/context")
@@ -308,9 +308,8 @@ def verify_mission(mission_id: str) -> Mission:
     mission = get_mission(mission_id)
     if mission.status != MissionStatus.EXECUTED:
         raise HTTPException(status_code=409, detail="Mission must be executed before verification")
-    action_plan = plan_action(mission.decision.recommended_action, target=(mission.action or {}).get("target"))
-    action_plan.payload["approved"] = True
-    result = ACTION_EXECUTOR.execute(action_plan)
+    action = mission.action or {}
+    result = ActionResult(action_type=str(action.get("type", "")), status="completed", output=dict(action.get("output") or {}), message=str(action.get("result_message", "")))
     verification = ACTION_VERIFIER.verify(result)
     mission.verification = {"status": verification.status, "checks": verification.checks, "details": verification.details, "verified_at": utc_now()}
     if verification.status != "verified":
