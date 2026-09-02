@@ -4,7 +4,7 @@ This folder is the first real MVP foundation for NEXUS.
 
 ## What it proves
 
-NEXUS receives a business goal, reads normalized business signals, reasons across those signals, produces a decision, creates an authorized action draft, and records verification/audit events.
+NEXUS receives a business goal, reads business signals, reasons across them, produces a decision, creates an authorized action plan, and records verification/audit events.
 
 ## First scenario
 
@@ -12,7 +12,23 @@ The included demo scenario is intentionally **not product price comparison**. It
 
 > Reduce operating cost by 10% within 90 days without changing quality and without breaking active contracts.
 
-The sample signal set contains supplier pricing, contract timing, spend concentration, and market context. The engine combines them into one recommended decision.
+The sample signal set combines supplier pricing, contract timing, spend concentration, and market context into one recommended decision.
+
+## Connector foundation
+
+The file connector now supports:
+
+- CSV
+- JSON
+- TXT
+- XLSX
+- PDF text extraction
+
+Every ingest returns a SHA-256 source hash and record-level provenance such as row, sheet/row, or PDF page. This gives NEXUS a traceable evidence chain instead of anonymous data.
+
+## Core foundation
+
+`core/models.py` introduces canonical business entities, relationships, evidence, and a graph-like business context. `core/policy.py` provides a deny-by-default action safety boundary. `core/planner.py` separates a recommended decision from an executable action plan.
 
 ## Run locally
 
@@ -38,19 +54,21 @@ Open `http://127.0.0.1:8000/docs`.
 ## Architecture
 
 ```text
-Mission
-  -> Observe
-  -> Understand
-  -> Reason
-  -> Decide
-  -> Approve
-  -> Act
-  -> Verify
-  -> Audit
+Goal / Mission
+      ↓
+Connector Layer
+      ↓
+Business Context + Evidence
+      ↓
+Observe → Understand → Reason → Decide
+      ↓
+Action Policy → Approve → Act
+      ↓
+Verify → Audit / History
 ```
 
-Connectors are deliberately normalized behind a common signal model so later we can swap the demo data for email, ERP, CRM, files, APIs, or approved web sources without rewriting the intelligence engine.
+Connectors handle transport and parsing; intelligence handles reasoning; policy controls execution. This separation is the foundation for adding email, ERP, CRM, cloud storage, web sources, and other enterprise systems without rewriting the intelligence core.
 
 ## Important
 
-This is an MVP foundation, not a production system. The included data is synthetic and safe for demos. Real connectors, authentication, authorization, tenant isolation, production persistence, and production-grade action controls are next milestones.
+This remains an MVP foundation, not a production system. The included scenario/data is synthetic and safe for demos. Production authentication, tenant isolation, secrets management, persistence, real write-capable connectors, observability, and stronger approval controls remain planned milestones.
