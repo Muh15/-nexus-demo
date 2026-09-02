@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import time
 from dataclasses import dataclass
 from urllib.parse import urljoin, urlparse
 
@@ -17,7 +18,9 @@ class BusinessActionConfig:
     token_env: str | None = None
     timeout_seconds: float = 10
     max_response_bytes: int = 2_000_000
+    max_request_bytes: int = 200_000
     max_retries: int = 2
+    retry_backoff_seconds: float = 0.05
 
 
 class BusinessActionConnector:
@@ -30,6 +33,10 @@ class BusinessActionConnector:
             raise ValueError("base_url must be an http(s) URL")
         if parsed.hostname not in config.allowed_hosts:
             raise ValueError(f"base_url host is not allow-listed: {parsed.hostname}")
+        if config.max_request_bytes <= 0 or config.max_response_bytes <= 0:
+            raise ValueError("request/response limits must be positive")
+        if config.max_retries < 0 or config.retry_backoff_seconds < 0:
+            raise ValueError("retry settings must be non-negative")
 
     def _url(self, endpoint: str) -> str:
         url = urljoin(self.config.base_url.rstrip("/") + "/", endpoint.lstrip("/"))
@@ -42,20 +49,36 @@ class BusinessActionConnector:
         method = method.upper()
         if method not in {"POST", "PATCH"}:
             raise ValueError("only POST and PATCH actions are supported")
+        if not execution_id or len(execution_id) > 128:
+            raise ValueError("execution_id is required and must be <= 128 characters")
+        if not isinstance(payload, dict):
+            raise ValueError("action payload must be an object")
+
         url = self._url(endpoint)
-        headers = {"Accept": "application/json", "Content-Type": "application/json", "Idempotency-Key": execution_id}
+        raw_payload = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        if len(raw_payload) > self.config.max_request_bytes:
+            raise ValueError("request exceeds configured maximum size")
+
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "Idempotency-Key": execution_id,
+        }
         if self.config.token_env:
             token = os.getenv(self.config.token_env)
             if token:
                 headers["Authorization"] = f"Bearer {token}"
+
         last_error: Exception | None = None
         for attempt in range(self.config.max_retries + 1):
             try:
                 with httpx.Client(timeout=self.config.timeout_seconds, follow_redirects=False) as client:
-                    response = client.request(method, url, headers=headers, json=payload)
-                if response.status_code in {408, 429} or 500 <= response.status_code < 600:
-                    if attempt < self.config.max_retries:
-                        continue
+                    response = client.request(method, url, headers=headers, content=raw_payload)
+                transient = response.status_code in {408, 429} or 500 <= response.status_code < 600
+                if transient and attempt < self.config.max_retries:
+                    if self.config.retry_backoff_seconds:
+                        time.sleep(self.config.retry_backoff_seconds * (2**attempt))
+                    continue
                 raw = response.content
                 if len(raw) > self.config.max_response_bytes:
                     raise ValueError("response exceeds configured maximum size")
@@ -77,4 +100,6 @@ class BusinessActionConnector:
                 last_error = exc
                 if attempt >= self.config.max_retries:
                     raise
+                if self.config.retry_backoff_seconds:
+                    time.sleep(self.config.retry_backoff_seconds * (2**attempt))
         raise last_error or RuntimeError("business action failed")
