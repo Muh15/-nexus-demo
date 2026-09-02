@@ -95,8 +95,11 @@ class FileConnector(Connector):
     @staticmethod
     def _csv(text: str) -> list[IngestedRecord]:
         reader = csv.DictReader(io.StringIO(text))
-        if not reader.fieldnames:
-            raise ValueError("CSV must contain a header row")
+        if not reader.fieldnames or len(reader.fieldnames) < 2:
+            raise ValueError("CSV must contain a header row with at least two columns")
+        rows = list(reader)
+        if not rows:
+            raise ValueError("CSV must contain at least one data row")
         return [
             IngestedRecord(
                 "file",
@@ -104,7 +107,7 @@ class FileConnector(Connector):
                 i,
                 f"row:{i}",
             )
-            for i, row in enumerate(reader, start=2)
+            for i, row in enumerate(rows, start=2)
         ]
 
     @staticmethod
