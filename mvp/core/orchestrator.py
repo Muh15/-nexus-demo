@@ -43,8 +43,59 @@ class MissionState:
         self.stage = stage
         self.log(stage, message, **metadata)
 
+    def snapshot(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "tenant_id": self.tenant_id,
+            "goal": self.goal,
+            "constraints": list(self.constraints),
+            "stage": self.stage,
+            "context": _plain(self.context),
+            "goal_plan": _plain(self.goal_plan),
+            "intelligence_graph": _plain(self.intelligence_graph),
+            "impact_assessments": _plain(self.impact_assessments),
+            "research_plan": _plain(self.research_plan),
+            "research_results": _plain(self.research_results),
+            "decision": _plain(self.decision),
+            "action_plan": _plain(self.action_plan),
+            "action_result": _plain(self.action_result),
+            "verification": _plain(self.verification),
+            "audit": _plain(self.audit),
+        }
+
 
 Reasoner = Callable[[str, list[str], BusinessContext], dict[str, Any]]
+
+
+def _plain(value: Any) -> Any:
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, dict):
+        return {str(key): _plain(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_plain(item) for item in value]
+    if hasattr(value, "model_dump"):
+        return _plain(value.model_dump(mode="json"))
+    if hasattr(value, "__dataclass_fields__"):
+        return {name: _plain(getattr(value, name)) for name in value.__dataclass_fields__}
+    return str(value)
+
+
+def mission_from_snapshot(snapshot: dict[str, Any]) -> MissionState:
+    """Restore a persisted mission snapshot without coupling storage to API models."""
+    required = ("id", "tenant_id", "goal", "stage")
+    missing = [field for field in required if field not in snapshot]
+    if missing:
+        raise ValueError(f"Mission snapshot missing fields: {', '.join(missing)}")
+    mission = MissionState(
+        id=str(snapshot["id"]),
+        tenant_id=str(snapshot["tenant_id"]),
+        goal=str(snapshot["goal"]),
+        constraints=[str(item) for item in snapshot.get("constraints", [])],
+        stage=str(snapshot.get("stage", "created")),
+        audit=list(snapshot.get("audit", [])),
+    )
+    return mission
 
 
 class MissionOrchestrator:
@@ -77,15 +128,7 @@ class MissionOrchestrator:
     def research_executor(self) -> ResearchExecutor:
         return self._research_executor
 
-    def create(
-        self,
-        *,
-        tenant_id: str,
-        goal: str,
-        constraints: Iterable[str] = (),
-        records: Iterable[dict[str, Any]] = (),
-        source: str = "unknown",
-    ) -> MissionState:
+    def create(self, *, tenant_id: str, goal: str, constraints: Iterable[str] = (), records: Iterable[dict[str, Any]] = (), source: str = "unknown") -> MissionState:
         records = list(records)
         constraints = list(constraints)
         mission = MissionState(id=f"NXS-{uuid4().hex[:10].upper()}", tenant_id=tenant_id, goal=goal, constraints=constraints)
@@ -96,16 +139,7 @@ class MissionOrchestrator:
         _, _, assessments = self._intelligence.prepare(tenant_id=tenant_id, goal_text=goal, constraints=constraints, records=records, source=source)
         mission.impact_assessments = assessments
         mission.research_plan = build_research_plan(mission.goal_plan, mission.context, assessments)
-        mission.transition(
-            "understand",
-            "تم بناء السياق وخريطة الأدلة وتحديد فجوات المعلومات قبل القرار.",
-            entities=len(mission.context.entities),
-            relationships=len(mission.context.relationships),
-            evidence=len(mission.context.evidence),
-            research_domains=mission.goal_plan.domains() if mission.goal_plan else [],
-            relevant_changes=sum(1 for item in assessments if item.relevant),
-            research_tasks=len(mission.research_plan.pending()) if mission.research_plan else 0,
-        )
+        mission.transition("understand", "تم بناء السياق وخريطة الأدلة وتحديد فجوات المعلومات قبل القرار.", entities=len(mission.context.entities), relationships=len(mission.context.relationships), evidence=len(mission.context.evidence), research_domains=mission.goal_plan.domains() if mission.goal_plan else [], relevant_changes=sum(1 for item in assessments if item.relevant), research_tasks=len(mission.research_plan.pending()) if mission.research_plan else 0)
         return mission
 
     def research(self, mission: MissionState) -> MissionState:
