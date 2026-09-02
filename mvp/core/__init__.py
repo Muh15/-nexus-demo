@@ -7,6 +7,7 @@ from .mission_intelligence import MissionIntelligence
 from .models import BusinessContext, Entity, Evidence, Relationship
 from .orchestrator import MissionOrchestrator, MissionState
 from .repository import InMemoryMissionRepository
+from .research_executor import ResearchExecutor, ResearchResult, context_provider
 from .research_planner import ResearchPlan, ResearchTask, build_research_plan
 
 __all__ = [
@@ -28,6 +29,9 @@ __all__ = [
     "ResearchPlan",
     "ResearchTask",
     "build_research_plan",
+    "ResearchExecutor",
+    "ResearchResult",
+    "context_provider",
     "MissionOrchestrator",
     "MissionState",
     "InMemoryMissionRepository",
