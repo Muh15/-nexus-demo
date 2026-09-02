@@ -12,231 +12,68 @@
 .sideCard{padding:22px;display:flex;flex-direction:column;justify-content:space-between}.sideTitle{display:flex;justify-content:space-between;align-items:center;color:#a8bdca;font-size:14px;margin-bottom:10px}.liveStatus{display:inline-flex;align-items:center;gap:6px;color:#75e9c9}.liveStatus i{display:block;width:6px;height:6px;border-radius:50%;background:#59e38d;box-shadow:0 0 12px rgba(89,227,141,.9);animation:livePulse 1.2s ease-in-out infinite}.domainStrip{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px}.domainStrip span{border:1px solid #1d3948;background:#0b1922;color:#8fa9b7;border-radius:10px;padding:8px 9px;font-size:10px;text-align:center}.pulse{height:250px;min-height:250px;border-radius:14px;background:radial-gradient(circle at 50% 50%,rgba(72,224,197,.13),transparent 45%),#09151e;border:1px solid #1e3441;display:grid;place-items:center;position:relative;overflow:hidden}.ring{position:absolute;border:1px solid rgba(72,224,197,.25);border-radius:50%;animation:orbitPulse 2.8s ease-in-out infinite}.r1{width:65px;height:65px}.r2{width:110px;height:110px;animation-delay:.3s}.r3{width:160px;height:160px;animation-delay:.6s}.core{width:22px;height:22px;border-radius:50%;background:var(--cyan);box-shadow:0 0 36px rgba(72,224,197,.9);animation:corePulse 1.5s ease-in-out infinite}.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:10px}.kpi{background:#09151e;border:1px solid #1b303e;border-radius:12px;padding:10px}.kpi b{display:block;font-size:20px}.kpi span{font-size:10px;color:var(--muted)}
 .workspace{margin-top:16px;padding:18px;display:none}.workspace.on{display:block;animation:workspaceIn .45s ease both}.workspace:target{display:block}.bar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:15px;flex-wrap:wrap}.missionLabel{font-size:12px;color:#91a8b6}.missionValue{font-size:13px;color:#eaf6fb}.grid{display:grid;grid-template-columns:1fr 1.25fr .9fr;gap:12px}.box{background:#09151e;border:1px solid #1c303d;border-radius:14px;overflow:hidden}.boxHead{padding:11px 13px;border-bottom:1px solid #1c303d;display:flex;justify-content:space-between;align-items:center;font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#9cb4c1}.boxBody{padding:13px}.timeline{min-height:305px;position:relative}.step{display:grid;grid-template-columns:19px 1fr;gap:10px;margin-bottom:16px;opacity:.35;transition:.35s}.step.done,.step.active{opacity:1}.stepDot{width:19px;height:19px;border-radius:50%;background:#10232e;border:1px solid #2f4c5d;display:grid;place-items:center;font-size:9px;color:#6f8a99}.step.done .stepDot{border-color:#3f9f8e;background:#102b2a;color:var(--cyan)}.step.active .stepDot{border-color:var(--cyan);box-shadow:0 0 17px rgba(72,224,197,.25);color:var(--cyan);animation:stepPulse 1s ease-in-out infinite}.stepTitle{font-weight:700;font-size:12px;margin-bottom:3px}.stepDesc{font-size:11px;color:#819ba9;line-height:1.4}.log{height:305px;overflow:auto;font:11px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace;color:#9bb4c2}.log div{margin-bottom:7px}.log .ok{color:#7df0bc}.log .warn{color:#ffd384}.log .dim{color:#617985}.findings{display:grid;gap:9px}.finding{padding:12px;border:1px solid #203745;background:#0b1922;border-radius:11px;opacity:0;transform:translateY(8px);transition:.45s ease}.finding.reveal{opacity:1;transform:none}.tag{display:inline-flex;padding:4px 7px;border-radius:999px;font-size:9px;font-weight:800;letter-spacing:.08em;margin-bottom:7px}.high{background:rgba(255,111,123,.12);color:#ff9da5;border:1px solid rgba(255,111,123,.25)}.opp{background:rgba(72,224,197,.1);color:#73ead4;border:1px solid rgba(72,224,197,.2)}.info{background:rgba(110,168,255,.1);color:#9fbeff;border:1px solid rgba(110,168,255,.2)}.finding b{display:block;font-size:12px;margin-bottom:5px}.finding p{font-size:10px;line-height:1.5;color:#8ea6b6;margin:0}.confidence{display:flex;justify-content:space-between;margin-top:7px;font-size:10px}.barline{height:4px;background:#122531;border-radius:10px;overflow:hidden;margin-top:5px}.barline i{display:block;height:100%;background:linear-gradient(90deg,#33b99f,#67e3cc)}.result{margin-top:12px;padding:16px;border:1px solid rgba(72,224,197,.27);background:linear-gradient(180deg,rgba(21,51,53,.26),rgba(8,21,27,.45));border-radius:14px;display:none}.result.show{display:block}.resultTop{display:flex;align-items:center;justify-content:space-between}.result h3{margin:0;font-size:18px}.metric{font-size:11px;color:#8da6b4}.actionRow{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}.action{border:1px solid #315265;background:#0a1922;padding:8px 11px;border-radius:8px;color:#bcd4df;font-size:10px;cursor:pointer;transition:.2s}.action:hover{border-color:#4e788d;transform:translateY(-1px)}.action.primary{border-color:#348d7d;color:#7ee8d3;background:#0d2827}.action.done{color:#75efbd;border-color:#43a981;background:#0d2b27}.execState{display:inline-flex;align-items:center;gap:6px;padding:5px 8px;border:1px solid #294654;border-radius:999px;color:#8fa9b7;background:#0a1821;font-size:9px}.execState.running{color:#78e9cf;border-color:rgba(72,224,197,.28);background:rgba(72,224,197,.05)}.execState.done{color:#79efb8;border-color:rgba(89,227,141,.25);background:rgba(89,227,141,.05)}.execState .miniDot{width:5px;height:5px;border-radius:50%;background:currentColor;box-shadow:0 0 8px currentColor}.auditLine{margin-top:9px;padding-top:9px;border-top:1px dashed #1b303d;color:#6f8996;font:9px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}.insightPanel{display:none;margin-top:12px;padding:16px;border:1px solid #1d4a52;border-radius:14px;background:linear-gradient(180deg,#0b1c25,#09151d)}.insightPanel.show{display:block}.insightHead{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}.insightHead h3{margin:6px 0 0;font-size:15px}.scorePill{padding:6px 9px;border-radius:999px;border:1px solid #2b6f69;color:#7eead5;font-size:11px;background:#0a2928}.reasonGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:12px}.reasonCard{border:1px solid #203744;border-radius:11px;padding:11px;background:#0a1720}.reasonCard span{font-size:9px;color:#6f8997;text-transform:uppercase;letter-spacing:.08em}.reasonCard b{display:block;font-size:12px;margin:5px 0}.reasonCard p{margin:0;font-size:10px;line-height:1.45;color:#8ca6b6}.evidenceStrip{display:grid;gap:7px;margin-top:10px}.evidenceItem{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px dashed #25404d;padding:9px;border-radius:10px;background:#09141c}.evidenceItem span{font-size:10px;color:#a8bac4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.evidenceItem a{font-size:10px;color:#6fe6cf;text-decoration:none;white-space:nowrap}.liveBadge{display:inline-flex;align-items:center;gap:5px;padding:4px 7px;border:1px solid rgba(89,227,141,.25);border-radius:999px;color:#79efb8;background:rgba(89,227,141,.05);font-size:8px}.fallbackBadge{border-color:rgba(255,200,107,.22);color:#ffd384;background:rgba(255,200,107,.04)}.sourceLine{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;font-size:9px;color:#6f8996}.sourceLink{color:#79dccc;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}.footer{margin:16px 0 0;color:#627c8a;font-size:10px;text-align:center;padding-bottom:8px}.demoSwitch{display:flex;gap:7px;margin-inline-start:auto}.demoSwitch button{border:1px solid #243b49;background:#0a1620;color:#7f98a7;border-radius:8px;padding:8px 10px;font-size:10px;cursor:pointer}.demoSwitch button.active{color:#cfe8ef;border-color:#3c6475;background:#10212d}.decisionBadge{display:inline-flex;align-items:center;gap:6px;color:#7ee8d3;border:1px solid rgba(72,224,197,.2);background:rgba(72,224,197,.06);padding:5px 8px;border-radius:999px;font-size:10px;margin-bottom:10px}
 @keyframes livePulse{0%,100%{transform:scale(.8);opacity:.65}50%{transform:scale(1.25);opacity:1}}@keyframes orbitPulse{0%,100%{transform:scale(.96);opacity:.38}50%{transform:scale(1.03);opacity:.75}}@keyframes corePulse{0%,100%{transform:scale(.9);box-shadow:0 0 24px rgba(72,224,197,.55)}50%{transform:scale(1.12);box-shadow:0 0 44px rgba(72,224,197,1)}}@keyframes workspaceIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}@keyframes stepPulse{50%{transform:scale(1.18)}}
-@media(max-width:1050px){.hero{grid-template-columns:1fr}.grid{grid-template-columns:1fr 1fr}.pulse{height:210px;min-height:210px}}@media(max-width:700px){.shell{padding:12px}.top{margin-bottom:14px;align-items:flex-start}.brand h1{font-size:16px}.brand p{font-size:11px}.status{font-size:11px}.hero{display:flex;flex-direction:column;gap:12px}.heroCard{padding:24px 18px 20px;border-radius:18px}.hero h2{font-size:clamp(39px,10.7vw,52px);line-height:1.03;margin:11px 0 15px}.hero .lead{font-size:14px;line-height:1.85;margin-bottom:18px}.mission{flex-direction:column;gap:9px}.mission textarea{width:100%;min-height:78px;height:78px;font-size:15px;line-height:1.55;padding:13px 14px}.mission button,.runBtn{width:100%;height:54px;min-height:54px}.quick{display:grid;grid-template-columns:1fr 1fr;gap:8px}.chip{width:100%;font-size:12px;padding:9px 8px}.sideCard{padding:18px;border-radius:18px}.sideTitle{font-size:15px;margin-bottom:9px}.domainStrip{gap:6px;margin-bottom:10px}.domainStrip span{font-size:9px;padding:8px 6px}.pulse{height:190px;min-height:190px}.r3{width:150px;height:150px}.kpis{gap:7px}.kpi{padding:9px}.kpi b{font-size:18px}.workspace{padding:14px;border-radius:18px}.bar{gap:8px}.missionValue{max-width:68vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.reasonGrid{grid-template-columns:1fr}.insightHead{align-items:center}.demoSwitch{display:none}.flow{gap:4px;font-size:9px;padding:9px 6px}.flow span,.flow strong{padding:5px}.flow i{font-size:9px}}@media(max-width:390px){.heroCard{padding:22px 15px 18px}.hero h2{font-size:37px}.hero .lead{font-size:13.5px}}
+@media(max-width:1050px){.hero{grid-template-columns:1fr}.grid{grid-template-columns:1fr 1fr}.pulse{height:210px;min-height:210px}}@media(max-width:700px){.shell{padding:12px}.hero h2{font-size:34px}.grid{grid-template-columns:1fr}.mission{flex-direction:column}.mission button{height:48px}.top{align-items:flex-start}.demoSwitch{display:none}}
 </style>
 </head>
 <body>
 <div class="shell">
 <div class="top"><div class="brand"><div class="mark"></div><div><h1>NEXUS</h1><p>محرك الذكاء والتنفيذ المستقل</p></div></div><div class="status"><span class="dot"></span>النظام يعمل · وضع العرض</div></div>
 <section class="hero"><div class="heroCard"><div class="eyebrow">مهمة واحدة · طبقات متعددة من الذكاء</div><h2>توقف عن المراقبة.<br><span>ابدأ بالتصرف.</span></h2><p class="lead">يراقب NEXUS المنتجات والمنافسين والموردين والأنظمة، ثم يربط الإشارات ويحلل أثرها ويحوّلها إلى إجراء عملي.</p><div class="mission"><textarea id="mission" rows="2">ابحث عن لابتوب بسعر مستهدف 3,000 ريال، وقارن السوق واكتشف أفضل فرصة شراء تستحق إجراءً.</textarea><a id="run" class="runBtn" href="#workspace">جرّب NEXUS الآن</a></div><div class="quick"><button class="chip" data-m="راقب أسعار الأجهزة واكتشف أي فرصة شراء أو تسعير تستحق الإجراء.">المنتجات والأسعار</button><button class="chip" data-m="راقب المنافسين واكتشف إطلاقات المنتجات والتغييرات المهمة في الأسعار والعروض.">المنافسون</button><button class="chip" data-m="راقب الموردين واكتشف تغيّر الأسعار والتوفر والبدائل ذات الأثر التجاري.">الموردون</button><button class="chip" data-m="راقب الجهات الرسمية واكتشف أي تحديث تنظيمي قد يؤثر على أعمالنا.">الجهات والأنظمة</button></div><div class="flow"><span>يكتشف</span><i>→</i><span>يفهم</span><i>→</i><span>يقرر</span><i>→</i><strong>ينفّذ</strong></div></div>
-<div class="sideCard"><div class="sideTitle"><span>ذكاء لحظي</span><span class="liveStatus"><i></i> يراقب الآن</span></div><div class="domainStrip"><span>المنتجات والأسعار</span><span>المنافسون</span><span>الموردون</span><span>الجهات والأنظمة</span></div><div class="pulse"><div class="ring r3"></div><div class="ring r2"></div><div class="ring r1"></div><div class="core"></div></div><div class="kpis"><div class="kpi"><b>127</b><span>مصدر</span></div><div class="kpi"><b>18</b><span>إشارة</span></div><div class="kpi"><b>04</b><span>إجراء</span></div></div></div></section>
-<section class="workspace" id="workspace"><div class="bar"><div><div class="missionLabel">المهمة النشطة · NEXUS ينفّذ الآن</div><div id="missionDisplay" class="missionValue"></div></div><div class="execState" id="execState"><i class="miniDot"></i><span>بانتظار التشغيل</span></div><div class="demoSwitch"><button data-mode="observe" class="active">مراقبة</button><button data-mode="reason">تحليل</button><button data-mode="act">تنفيذ</button></div></div>
+<div class="sideCard"><div class="sideTitle"><span>ذكاء لحظي</span><span class="liveStatus"><i></i> يراقب الآن</span></div><div class="domainStrip"><span>المنتجات والأسعار</span><span>المنافسون</span><span>الموردون</span><span>الجهات والأنظمة</span></div><div class="pulse"><div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div><div class="core"></div></div><div class="kpis"><div class="kpi"><b>127</b><span>مصدر</span></div><div class="kpi"><b>18</b><span>إشارة</span></div><div class="kpi"><b>04</b><span>إجراء</span></div></div></div></section>
+<section id="workspace" class="workspace"><div class="bar"><div><div class="missionLabel">المهمة النشطة · NEXUS ينفّذ الآن</div><div id="missionDisplay" class="missionValue"></div></div><div class="execState" id="execState"><i class="miniDot"></i><span>بانتظار التشغيل</span></div><div class="demoSwitch"><button data-mode="observe" class="active">مراقبة</button><button data-mode="reason">تحليل</button><button data-mode="act">تنفيذ</button></div></div>
 <div class="grid"><div class="box"><div class="boxHead"><span>تنفيذ الوكيل</span><span id="progressTxt">0%</span></div><div class="boxBody timeline" id="timeline"></div></div><div class="box"><div class="boxHead"><span>سجل القرارات</span><span>قابل للتتبع</span></div><div class="boxBody log" id="log"></div></div><div class="box"><div class="boxHead"><span>الذكاء المكتشف</span><span>مرتب حسب الأولوية</span></div><div class="boxBody findings" id="findings"></div></div></div>
-<div class="insightPanel" id="insightPanel"><div class="insightHead"><div><div class="eyebrow">تحليل NEXUS</div><h3>لماذا هذه الإشارة مهمة؟</h3></div><div class="scorePill" id="decisionScore">ثقة القرار 93%</div></div><div class="reasonGrid"><div class="reasonCard"><span>الدليل</span><b id="evidenceCount">3 مصادر</b><p id="evidenceReason">سيناريو عرض جاهز يوضح كيف يعمل محرك القرار.</p></div><div class="reasonCard"><span>الأثر</span><b id="impactText">تأثير تجاري محتمل</b><p id="impactReason">قد يستدعي مراجعة التسعير أو التموضع أو التوفر.</p></div><div class="reasonCard"><span>الإجراء المقترح</span><b id="actionText">مراجعة + متابعة</b><p id="actionReason">NEXUS يقترح الخطوة التالية بدل الاكتفاء بالتنبيه.</p></div></div><div class="evidenceStrip" id="evidenceStrip"></div></div>
-<div class="result" id="result"><div class="decisionBadge">✓ القرار جاهز للتنفيذ</div><div class="resultTop"><div><div class="eyebrow">توصية NEXUS</div><h3 id="resultTitle">تم اكتشاف فرصة استراتيجية</h3></div><div class="metric">الثقة <b id="confidence">94%</b></div></div><p id="resultText" style="color:#9eb5c1;font-size:12px;line-height:1.6;margin:9px 0 0"></p><div class="actionRow"><span class="action primary" id="createAction">✓ إنشاء خطة إجراء</span><span class="action" id="openEvidence">فتح الأدلة</span><span class="action">إسناد للفريق</span><span class="action">تصدير سجل التدقيق</span></div></div>
-</section>
-<div class="footer">نموذج LEAP · مصادر ويب حية عند توفر الاتصال · نتائج احتياطية للعرض</div>
-</div>
+<div class="insightPanel" id="insightPanel"><div class="insightHead"><div><div class="eyebrow">تحليل NEXUS</div><h3>لماذا هذه الإشارة مهمة؟</h3></div><div class="scorePill" id="decisionScore">—</div></div><div class="reasonGrid"><div class="reasonCard"><span>الدليل</span><b id="evidenceCount">0 مصادر</b><p id="evidenceReason">بانتظار اكتمال طبقة الاكتشاف.</p></div><div class="reasonCard"><span>الأثر</span><b id="impactText">غير محدد</b><p id="impactReason">يُحدد بعد ربط الإشارات.</p></div><div class="reasonCard"><span>الإجراء المقترح</span><b id="actionText">لم يُنشأ بعد</b><p id="actionReason">سيظهر بعد اتخاذ القرار.</p></div></div><div class="evidenceStrip" id="evidenceStrip"></div></div>
+<div class="result" id="result"><div class="decisionBadge">✓ القرار جاهز للتنفيذ</div><div class="resultTop"><div><div class="eyebrow">توصية NEXUS</div><h3 id="resultTitle">تم اكتشاف فرصة استراتيجية</h3></div><div class="metric">الثقة <b id="confidence">94%</b></div></div><p id="resultText" style="color:#9eb5c1;font-size:12px;line-height:1.6;margin:9px 0 0"></p><div class="actionRow"><span class="action primary" id="createAction">✓ إنشاء خطة إجراء</span><span class="action" id="openEvidence">فتح الأدلة</span><span class="action">إسناد للفريق</span><span class="action">تصدير سجل التدقيق</span></div><div id="auditLine" class="auditLine"></div></div></section>
+<div class="footer">نموذج LEAP · مصادر ويب حية عند توفر الاتصال · نتائج احتياطية للعرض</div></div>
 <script>
 const $=s=>document.querySelector(s); const $$=s=>document.querySelectorAll(s);
 const mission=$('#mission'), run=$('#run'), workspace=$('#workspace'), timeline=$('#timeline'), log=$('#log'), findings=$('#findings'), result=$('#result'), progressTxt=$('#progressTxt');
 const steps=[['استلام المهمة','فهم الهدف والقيود ومعايير النجاح.'],['اكتشاف المصادر','ربط مصادر المنتجات والمنافسين والموردين والمصادر الرسمية ذات الصلة.'],['استخراج الإشارات','توحيد التغيّرات في الأسعار والإطلاقات والتوفر والأنظمة.'],['ربط الإشارات وتحليلها','ربط الإشارات المستقلة وتقييم أثرها التجاري.'],['اتخاذ القرار','اختيار الإجراء الأعلى قيمة بناءً على الأدلة ودرجة الثقة.'],['تنفيذ الإجراء','إنشاء الخطوة التالية القابلة للتنفيذ وحفظ سجل تدقيق كامل.']];
 function addLog(t,c=''){const d=document.createElement('div');d.className=c;d.textContent=t;log.appendChild(d);log.scrollTop=log.scrollHeight}
+function esc(v){return String(v??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]))}
 
-const FALLBACK_FINDINGS = [
-  {tag:'فرصة شراء', cls:'opp', title:'لابتوب Lenovo IdeaPad 5 بسعر 2,899 ريال', body:'أقل من السعر المستهدف 3,000 ريال بـ101 ريال، مع قيمة شراء قوية ضمن النطاق المطلوب.', score:94, price:'2,899 ريال', delta:'−101 ريال'},
-  {tag:'مطابقة قوية', cls:'info', title:'لابتوب ASUS VivoBook 15 بسعر 2,999 ريال', body:'مطابقة شبه مثالية للهدف السعري؛ الفارق ريال واحد فقط عن 3,000 ريال.', score:91, price:'2,999 ريال', delta:'−1 ريال'},
-  {tag:'للمقارنة', cls:'high', title:'لابتوب HP 15 بسعر 3,149 ريال', body:'فوق الميزانية المستهدفة بـ149 ريال؛ لا يتفوق بما يكفي لتبرير الزيادة.', score:82, price:'3,149 ريال', delta:'+149 ريال'}
-];
+const SCENARIOS={
+ price:{title:'تم اكتشاف أفضل فرصة ضمن 3,000 ريال',score:94,evidence:'3 مطابقة سعرية',evidenceReason:'تمت مقارنة عروض ضمن نطاق 3,000 ريال وتحديد الأقرب للهدف.',impact:'فارق سعري واضح',impactReason:'أفضل مطابقة أقل من الهدف بـ101 ريال، مع بديل شبه مطابق بفارق ريال واحد.',action:'ترشيح + متابعة',actionReason:'NEXUS يوصي بترشيح العرض الأقرب للقيمة ثم متابعة تغيّر السعر قبل الشراء.',result:'حدد NEXUS عرض Lenovo IdeaPad 5 بسعر 2,899 ريال، أي أقل من الهدف بـ101 ريال، مع بديل قريب جدًا بسعر 2,999 ريال.',findings:[
+  {tag:'فرصة شراء',cls:'opp',title:'لابتوب Lenovo IdeaPad 5 بسعر 2,899 ريال',body:'أقل من السعر المستهدف 3,000 ريال بـ101 ريال، مع قيمة شراء قوية ضمن النطاق المطلوب.',score:94,delta:'−101 ريال'},
+  {tag:'مطابقة قوية',cls:'info',title:'لابتوب ASUS VivoBook 15 بسعر 2,999 ريال',body:'مطابقة شبه مثالية للهدف السعري؛ الفارق ريال واحد فقط عن 3,000 ريال.',score:91,delta:'−1 ريال'},
+  {tag:'للمقارنة',cls:'high',title:'لابتوب HP 15 بسعر 3,149 ريال',body:'فوق الميزانية المستهدفة بـ149 ريال؛ لا يتفوق بما يكفي لتبرير الزيادة.',score:82,delta:'+149 ريال'}]},
+ products:{title:'تم اكتشاف فرصة منتج تستحق الإجراء',score:91,evidence:'3 إشارات منتجات',evidenceReason:'تمت مطابقة تغيّرات الأسعار والعروض والتوفر لاكتشاف فرصة ذات قيمة.',impact:'فرصة تجارية',impactReason:'تغيّر السعر أو التوفر قد يفتح فرصة شراء أو إعادة تسعير.',action:'مراجعة + متابعة',actionReason:'NEXUS يقترح مراجعة العرض ومتابعة السعر قبل اعتماد القرار.',result:'تم رصد منتج ذي إشارة سعرية قوية. NEXUS ربط السعر والتوفر والعرض المقارن قبل اقتراح الخطوة التالية.',findings:[
+  {tag:'فرصة',cls:'opp',title:'انخفاض سعري يستحق المراجعة',body:'تم رصد عرض أقل من متوسط السوق ويستحق التحقق قبل اتخاذ القرار.',score:92,delta:'−8% من متوسط السوق'},
+  {tag:'توفّر',cls:'info',title:'تغيّر في توفر المنتج',body:'التوفر الحالي يدعم اتخاذ قرار سريع قبل تغيّر العرض.',score:87,delta:'إشارة حديثة'},
+  {tag:'مقارنة',cls:'high',title:'عرض منافس أعلى سعراً',body:'يوجد عرض بديل أعلى سعراً دون ميزة واضحة تبرر الفارق.',score:81,delta:'+6% مقابل الأفضل'}]},
+ competitors:{title:'تم اكتشاف تغيّر تنافسي يستحق المتابعة',score:90,evidence:'3 إشارات تنافسية',evidenceReason:'تم ربط إطلاقات المنافسين وتغيّرات الأسعار والعروض في إشارة واحدة.',impact:'ضغط تنافسي محتمل',impactReason:'التغيير قد يؤثر على التموضع أو التسعير أو حصة السوق.',action:'تحليل + استجابة',actionReason:'NEXUS يقترح تقييم أثر التغيير ثم تجهيز استجابة قبل أن يتوسع أثره.',result:'رصد NEXUS تغيّراً في نشاط منافس وربطه بإشارات السوق، ثم حوّله إلى خطوة متابعة قابلة للتنفيذ.',findings:[
+  {tag:'منافس',cls:'high',title:'إطلاق أو تحديث جديد لدى منافس',body:'إشارة تنافسية قد تستدعي مراجعة التموضع والعرض الحالي.',score:90,delta:'قوة 90%'},
+  {tag:'سعري',cls:'opp',title:'تحرك سعري في السوق',body:'تغير سعري متزامن قد يضغط على الأسعار الحالية.',score:87,delta:'قوة 87%'},
+  {tag:'تجاري',cls:'info',title:'تغيّر في العرض أو الحملة',body:'تغيّر تجاري يمكن أن يؤثر على جذب العملاء.',score:83,delta:'قوة 83%'}]},
+ suppliers:{title:'تم اكتشاف فرصة في سلسلة التوريد',score:92,evidence:'3 إشارات موردين',evidenceReason:'تم ربط السعر والتوفر والبدائل لتحديد أفضل فرصة توريد.',impact:'تحسين محتمل للتكلفة',impactReason:'تغيّر أسعار الموردين أو توفرهم قد يحسن الهامش أو يقلل مخاطر الانقطاع.',action:'مقارنة + تفاوض',actionReason:'NEXUS يقترح مقارنة البدائل ثم فتح مسار تفاوض مع المورد الأنسب.',result:'رصد NEXUS تغيراً في أسعار وتوفر الموردين، وحدد مساراً لمقارنة البدائل والتفاوض قبل الالتزام.',findings:[
+  {tag:'فرصة توريد',cls:'opp',title:'مورد بديل بتكلفة أفضل',body:'إشارة إلى بديل قد يخفض تكلفة الشراء مع الحفاظ على المتطلبات.',score:92,delta:'تحسن محتمل'},
+  {tag:'توفر',cls:'info',title:'ارتفاع في توفر مورد',body:'توفر أفضل يقلل مخاطر انقطاع الإمداد ويستحق التحقق.',score:88,delta:'إشارة حديثة'},
+  {tag:'مخاطر',cls:'high',title:'مورد يحتاج مراجعة',body:'تغير في السعر أو التوفر يستدعي مقارنة قبل إعادة الطلب.',score:80,delta:'مراجعة مطلوبة'}]},
+ regulation:{title:'تم اكتشاف تحديث تنظيمي يحتاج مراجعة',score:89,evidence:'3 مصادر رسمية',evidenceReason:'تم ربط تحديثات الجهات الرسمية وتحديد ما قد يرتبط بقرار تشغيلي.',impact:'أثر امتثال محتمل',impactReason:'التغيير قد يتطلب تحديث إجراء داخلي أو مراجعة منتج أو سياسة.',action:'مراجعة امتثال',actionReason:'NEXUS يوصي بالمراجعة البشرية قبل أي تنفيذ مرتبط بالامتثال.',result:'رصد NEXUS تحديثاً من مصدر رسمي، ثم صنفه حسب الأثر وحدد مسار مراجعة قبل التنفيذ.',findings:[
+  {tag:'تنظيمي',cls:'info',title:'تحديث رسمي يحتاج مراجعة',body:'تم رصد تحديث من جهة رسمية وقد يرتبط بمتطلبات تشغيلية.',score:89,delta:'مراجعة مطلوبة'},
+  {tag:'امتثال',cls:'high',title:'احتمال أثر على الإجراءات',body:'قد يحتاج الفريق إلى مراجعة سياسة أو إجراء قبل الاستمرار.',score:84,delta:'أثر محتمل'},
+  {tag:'متابعة',cls:'opp',title:'تحديث يستحق التتبع',body:'ينصح NEXUS بمتابعة أي توضيحات أو تحديثات لاحقة.',score:81,delta:'قابل للمتابعة'}]}
+};
 
-function esc(v){
-  return String(v ?? '').replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
-}
-
-function showFallbackFindings(){
-  findings.innerHTML=FALLBACK_FINDINGS.map((f,i)=>`
-    <div class="finding" data-f="${i}">
-      <span class="tag ${f.cls}">${f.tag}</span><b>${f.title}</b>
-      <p>${f.body}</p>
-      <div class="confidence"><span>السعر مقابل الهدف</span><span>${f.delta}</span></div>
-      <div class="barline"><i style="width:${f.score}%"></i></div>
-      <div class="sourceLine"><span class="fallbackBadge liveBadge">بيانات العرض</span><span>مطابقة سعرية</span></div>
-    </div>`).join('');
-}
-
-async function fetchFeed(query){
-  const rss=`https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ar&gl=SA&ceid=SA:ar`;
-  const api=`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rss)}&count=5`;
-  const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),6500);
-  try{
-    const res=await fetch(api,{signal:controller.signal,cache:'no-store'});
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const data=await res.json();
-    if(data.status!=='ok') throw new Error(data.message||'RSS failed');
-    return (data.items||[]).map(x=>({title:x.title,link:x.link,pubDate:x.pubDate})).filter(x=>x.title);
-  } finally { clearTimeout(timer); }
-}
-
-function classifyLive(results){
-  const all=[
-    ...results.products.map(x=>({...x,kind:'المنتجات'})),
-    ...results.competitors.map(x=>({...x,kind:'المنافسون'})),
-    ...results.regulation.map(x=>({...x,kind:'الأنظمة'}))
-  ];
-  const seen=new Set();
-  return all.filter(x=>{const k=x.title.toLowerCase(); if(seen.has(k)) return false; seen.add(k); return true;}).slice(0,3);
-}
-
-function showLiveFindings(items){
-  const palette=[
-    {tag:'إشارة',cls:'opp',score:91},
-    {tag:'منافس',cls:'high',score:86},
-    {tag:'تنظيمي',cls:'info',score:78}
-  ];
-  findings.innerHTML=items.length ? items.map((x,i)=>{
-    const p=palette[i%palette.length];
-    return `<div class="finding liveFinding" data-f="${i}">
-      <span class="tag ${p.cls}">${p.tag}</span>
-      <b>${esc(x.title)}</b>
-      <p>إشارة حية التقطها NEXUS من نتائج الويب، وتحتاج طبقة التحليل إلى تقييم علاقتها بالمهمة الحالية.</p>
-      <div class="confidence"><span>ثقة الاستخراج</span><span>${p.score}%</span></div>
-      <div class="barline"><i style="width:${p.score}%"></i></div>
-      <div class="sourceLine">
-        <span class="liveBadge"><i></i> مصدر حي</span>
-        <a class="sourceLink" href="${esc(x.link)}" target="_blank" rel="noopener">فتح المصدر ↗</a>
-      </div>
-    </div>`;
-  }).join('') : '';
-  [...findings.querySelectorAll('.finding')].forEach((c,i)=>setTimeout(()=>c.classList.add('reveal'),200+i*220));
-}
+function detectScenario(text){const t=(text||'').trim();if(/3\s*,?\s*000|3000|ثلاثة آلاف/.test(t)&&/لابتوب|جهاز|منتج|سعر|شراء/.test(t))return SCENARIOS.price;if(/مورد|موردين|الموردون|توريد|مخزون|توفير|بدائل/.test(t))return SCENARIOS.suppliers;if(/جهات|الجهات|أنظمة|تنظيم|تنظيمي|وزارة|هيئة|رسمي|لوائح|تعميم/.test(t))return SCENARIOS.regulation;if(/منافس|منافسين|المنافسون|السوق|إطلاق|حملة|عروض/.test(t))return SCENARIOS.competitors;return SCENARIOS.products}
+function showFallbackFindings(scenario){findings.innerHTML=scenario.findings.map((f,i)=>`<div class="finding" data-f="${i}"><span class="tag ${f.cls}">${f.tag}</span><b>${f.title}</b><p>${f.body}</p><div class="confidence"><span>${scenario===SCENARIOS.price?'السعر مقابل الهدف':'قوة الإشارة'}</span><span>${f.delta}</span></div><div class="barline"><i style="width:${f.score}%"></i></div><div class="sourceLine"><span class="fallbackBadge liveBadge">بيانات العرض</span><span>تحليل NEXUS</span></div></div>`).join('');[...findings.querySelectorAll('.finding')].forEach((c,i)=>setTimeout(()=>c.classList.add('reveal'),120+i*180))}
+async function fetchFeed(query){const rss=`https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ar&gl=SA&ceid=SA:ar`;const api=`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rss)}&count=5`;const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),6500);try{const res=await fetch(api,{signal:controller.signal,cache:'no-store'});if(!res.ok)throw Error('HTTP '+res.status);const data=await res.json();if(data.status!=='ok')throw Error(data.message||'RSS failed');return(data.items||[]).map(x=>({title:x.title,link:x.link,pubDate:x.pubDate})).filter(x=>x.title)}finally{clearTimeout(timer)}}
+function showLiveFindings(items){const palette=[{tag:'إشارة',cls:'opp',score:91},{tag:'منافس',cls:'high',score:86},{tag:'تنظيمي',cls:'info',score:78}];findings.innerHTML=items.length?items.map((x,i)=>{const p=palette[i%palette.length];return `<div class="finding liveFinding" data-f="${i}"><span class="tag ${p.cls}">${p.tag}</span><b>${esc(x.title)}</b><p>إشارة حية التقطها NEXUS، ثم يقيّم علاقتها بالمهمة الحالية قبل اعتماد القرار.</p><div class="confidence"><span>ثقة الاستخراج</span><span>${p.score}%</span></div><div class="barline"><i style="width:${p.score}%"></i></div><div class="sourceLine"><span class="liveBadge"><i></i> مصدر حي</span><a class="sourceLink" href="${esc(x.link)}" target="_blank" rel="noopener">فتح المصدر ↗</a></div></div>`}).join(''):'';[...findings.querySelectorAll('.finding')].forEach((c,i)=>setTimeout(()=>c.classList.add('reveal'),200+i*220))}
 
 async function runMission(){
-  workspace.classList.add('on');
-  setTimeout(()=>workspace.scrollIntoView({behavior:'smooth',block:'start'}),120);
-  result.classList.remove('show');
-  const insight=$('#insightPanel'); if(insight) insight.classList.remove('show');
-  timeline.innerHTML=''; log.innerHTML=''; findings.innerHTML='';
-  $('#missionDisplay').textContent=mission.value;
-
-  const state=$('#execState');
-  state.className='execState running';
-  state.innerHTML='<i class="miniDot"></i><span>يعمل الآن</span>';
-
-  const nodes=[];
-  steps.forEach((s,i)=>{
-    const e=document.createElement('div');
-    e.className='step';
-    e.innerHTML=`<div class="stepDot">${i+1}</div><div><div class="stepTitle">${s[0]}</div><div class="stepDesc">${s[1]}</div></div>`;
-    timeline.appendChild(e); nodes.push(e);
-  });
-
-  const t0=new Date();
-  const stamp=()=>t0.toLocaleTimeString('ar-SA',{hour12:false});
-  const logs=(m,c)=>addLog(`${stamp()}  ${m}`,c);
-
-  nodes[0].classList.add('active'); progressTxt.textContent='8%';
-  logs('تم قبول المهمة · تحويل الطلب إلى خطة تنفيذ متعددة المصادر','ok');
-  await new Promise(r=>setTimeout(r,450));
-  nodes[0].classList.remove('active'); nodes[0].classList.add('done');
-
-  nodes[1].classList.add('active'); progressTxt.textContent='24%';
-  logs('بدء اكتشاف المصادر الحية','ok');
-  const queries={
-    products:'لابتوبات أسعار السعودية',
-    competitors:'لابتوبات منافسين السعودية إطلاق جديد',
-    regulation:'السعودية تنظيم أجهزة إلكترونية لابتوبات'
-  };
-  let live=null;
-  try{
-    const [products,competitors,regulation]=await Promise.all([
-      fetchFeed(queries.products), fetchFeed(queries.competitors), fetchFeed(queries.regulation)
-    ]);
-    live={products,competitors,regulation};
-    const total=products.length+competitors.length+regulation.length;
-    logs(`تم جمع ${total} نتيجة حديثة من ثلاث طبقات بحث`,'ok');
-    nodes[1].classList.remove('active'); nodes[1].classList.add('done');
-  }catch(e){
-    logs('تعذر الوصول المباشر · تفعيل وضع العرض الاحتياطي','warn');
-    showFallbackFindings();
-    nodes[1].classList.remove('active'); nodes[1].classList.add('done');
-  }
-
-  nodes[2].classList.add('active'); progressTxt.textContent='41%';
-  logs('استخراج الإشارات وتصفية النتائج حسب المهمة','ok');
-  await new Promise(r=>setTimeout(r,600));
-
-  let items=[];
-  if(live){
-    items=classifyLive(live);
-    showLiveFindings(items);
-    logs(`تم اختيار ${items.length} إشارات أولية قابلة للتحليل`,'dim');
-  }else{
-    [...findings.querySelectorAll('.finding')].forEach((c,i)=>setTimeout(()=>c.classList.add('reveal'),120+i*180));
-    items=FALLBACK_FINDINGS.map((f,i)=>({title:f.title,link:'#',kind:i===0?'المنتجات':i===1?'المنافسون':'الأنظمة'}));
-    logs('تم تحميل إشارات العرض لتثبيت سيناريو العرض','dim');
-  }
-  nodes[2].classList.remove('active'); nodes[2].classList.add('done');
-
-  nodes[3].classList.add('active'); progressTxt.textContent='57%';
-  logs('ربط الإشارات: منتج + منافس + جهة رسمية','ok');
-  await new Promise(r=>setTimeout(r,800));
-  logs('نتيجة الربط: توجد إشارة تستحق قرارًا تشغيليًا','ok');
-
-  const priceMission = /3\s*,?\s*000|3000|ثلاثة آلاف/.test(mission.value);
-  const score = priceMission ? (live ? Math.min(97, 88 + Math.min(items.length,3)*3) : 94) : (live ? Math.min(96, 86 + Math.min(items.length,3)*3) : 93);
-  const evidenceCount = live ? (items.length || 0) : 3;
-  if($('#decisionScore')) $('#decisionScore').textContent=`ثقة القرار ${score}%`;
-  if($('#evidenceCount')) $('#evidenceCount').textContent=`${evidenceCount} مصادر`;
-  if($('#evidenceReason')) $('#evidenceReason').textContent = live
-    ? 'تم دعم التحليل بنتائج ويب حديثة قابلة للفتح.'
-    : 'سيناريو عرض جاهز يوضح كيف يعمل محرك القرار.';
-  const isPriceMission = /3\s*,?\s*000|3000|ثلاثة آلاف/.test(mission.value);
-  if(isPriceMission){
-    if($('#decisionScore')) $('#decisionScore').textContent=`ثقة القرار ${live ? Math.min(97,score+1) : 94}%`;
-    if($('#evidenceCount')) $('#evidenceCount').textContent=`3 مطابقة سعرية`;
-    if($('#evidenceReason')) $('#evidenceReason').textContent='تمت مقارنة عروض ضمن نطاق 3,000 ريال وتحديد الأقرب للهدف.';
-    if($('#impactText')) $('#impactText').textContent='فارق سعري واضح';
-    if($('#impactReason')) $('#impactReason').textContent='أفضل مطابقة أقل من الهدف بـ101 ريال، مع بديل شبه مطابق بفارق ريال واحد.';
-    if($('#actionText')) $('#actionText').textContent='ترشيح + متابعة';
-    if($('#actionReason')) $('#actionReason').textContent='NEXUS يوصي بترشيح العرض الأقرب للقيمة ثم متابعة تغيّر السعر قبل الشراء.';
-  } else {
-    if($('#impactText')) $('#impactText').textContent='تأثير تجاري محتمل';
-    if($('#impactReason')) $('#impactReason').textContent='قد يستدعي مراجعة التسعير أو التموضع أو التوفر.';
-    if($('#actionText')) $('#actionText').textContent='مراجعة + متابعة';
-    if($('#actionReason')) $('#actionReason').textContent='NEXUS يقترح الخطوة التالية بدل الاكتفاء بالتنبيه.';
-  }
-  if($('#evidenceStrip')){
-    $('#evidenceStrip').innerHTML = items.slice(0,3).map((x,i)=>`
-      <div class="evidenceItem">
-        <span>${esc(x.title || ('إشارة '+(i+1)))}</span>
-        ${x.link && x.link !== '#' ? `<a href="${esc(x.link)}" target="_blank" rel="noopener">فتح الدليل ↗</a>` : '<span>دليل العرض</span>'}
-      </div>`).join('');
-  }
-
-  nodes[3].classList.remove('active'); nodes[3].classList.add('done');
-
-  nodes[4].classList.add('active'); progressTxt.textContent='74%';
-  logs('اتخاذ القرار: اختيار الإجراء الأقل مخاطرة والأعلى قيمة','ok');
-  await new Promise(r=>setTimeout(r,700));
-  nodes[4].classList.remove('active'); nodes[4].classList.add('done');
-
-  nodes[5].classList.add('active'); progressTxt.textContent='91%';
-  logs('تحويل القرار إلى خطة إجراء قابلة للمراجعة','warn');
-  await new Promise(r=>setTimeout(r,650));
-  nodes[5].classList.remove('active'); nodes[5].classList.add('done');
-
-  progressTxt.textContent='100%';
-  logs('اكتملت المهمة · القرار موثق والإجراء جاهز','ok');
-  state.className='execState done';
-  state.innerHTML='<i class="miniDot"></i><span>الإجراء جاهز</span>';
-
-  const resultPriceMission = /3\s*,?\s*000|3000|ثلاثة آلاف/.test(mission.value);
-  $('#resultTitle').textContent = resultPriceMission ? 'تم اكتشاف أفضل فرصة ضمن 3,000 ريال' : (live ? 'تم اكتشاف فرصة تستحق المتابعة' : 'تم اكتشاف فرصة استراتيجية');
-  $('#resultText').textContent = resultPriceMission
-    ? 'حدد NEXUS عرضًا بسعر 2,899 ريال، أي أقل من الهدف بـ101 ريال، مع بديل قريب جدًا بسعر 2,999 ريال. التوصية الآن هي الترشيح والمتابعة قبل اتخاذ قرار الشراء.'
-    : (live ? 'ربط NEXUS إشارات حديثة من نتائج الويب وقدم توصية تشغيلية قابلة للمراجعة. يمكن فتح الأدلة ثم إنشاء خطة الإجراء.'
-    : 'يعرض NEXUS هنا كيف ينتقل من الإشارة إلى القرار، مع فصل واضح بين الأدلة والتوصية وخطوة التنفيذ.');
-  $('#confidence').textContent = `${score}%`;
-  result.classList.add('show');
-  if(insight) insight.classList.add('show');
-  if($('#createAction')) $('#createAction').onclick=()=>{ $('#createAction').textContent='✓ تم إنشاء خطة الإجراء'; $('#createAction').classList.add('done'); addLog('تم إنشاء خطة الإجراء · جاهزة للإسناد','ok'); state.className='execState done'; state.innerHTML='<i class="miniDot"></i><span>الإجراء جاهز</span>'; };
-  if($('#openEvidence')) $('#openEvidence').onclick=()=>{ insight?.classList.add('show'); insight?.scrollIntoView({behavior:'smooth',block:'center'}); };
-}
-
-run.addEventListener('click',e=>{e.preventDefault(); runMission();});
-$$('.chip').forEach(c=>c.addEventListener('click',()=>{mission.value=c.dataset.m; mission.focus();}));
-$$('.demoSwitch button').forEach(b=>b.addEventListener('click',()=>{$$('.demoSwitch button').forEach(x=>x.classList.remove('active'));b.classList.add('active');const m=b.dataset.mode;if(m==='observe') mission.value='راقب المنتجات والمنافسين والموردين والجهات الرسمية واكتشف التغيّرات المهمة.';if(m==='reason') mission.value='اربط الإشارات المختلفة وحدد الفرصة أو المخاطر الأكثر تأثيرًا.';if(m==='act') mission.value='بعد التحقق، حوّل أهم إشارة إلى إجراء قابل للتنفيذ مع سجل تدقيق.';}));
-</script>
-</body>
-</html>
+ const scenario=detectScenario(mission.value);workspace.classList.add('on');setTimeout(()=>workspace.scrollIntoView({behavior:'smooth',block:'start'}),120);result.classList.remove('show');const insight=$('#insightPanel');if(insight)insight.classList.remove('show');timeline.innerHTML='';log.innerHTML='';findings.innerHTML='';$('#missionDisplay').textContent=mission.value;const state=$('#execState');state.className='execState running';state.innerHTML='<i class="miniDot"></i><span>يعمل الآن</span>';
+ const nodes=[];steps.forEach((s,i)=>{const e=document.createElement('div');e.className='step';e.innerHTML=`<div class="stepDot">${i+1}</div><div><div class="stepTitle">${s[0]}</div><div class="stepDesc">${s[1]}</div></div>`;timeline.appendChild(e);nodes.push(e)});const t0=new Date(),stamp=()=>t0.toLocaleTimeString('ar-SA',{hour12:false}),logs=(m,c)=>addLog(`${stamp()}  ${m}`,c);
+ nodes[0].classList.add('active');progressTxt.textContent='8%';logs('تم قبول المهمة · فهم الهدف والقيود','ok');await new Promise(r=>setTimeout(r,400));nodes[0].classList.remove('active');nodes[0].classList.add('done');
+ nodes[1].classList.add('active');progressTxt.textContent='24%';logs(`اكتشاف المصادر المناسبة للمهمة · ${scenario===SCENARIOS.price?'بحث سعري':'بحث متعدد المصادر'}`,'ok');let live=null;
+ if(scenario===SCENARIOS.price){try{const [products,competitors,regulation]=await Promise.all([fetchFeed('لابتوبات أسعار السعودية 3000 ريال'),fetchFeed('لابتوبات منافسين السعودية أسعار'),fetchFeed('السعودية تنظيم أجهزة إلكترونية لابتوبات')]);live={products,competitors,regulation};logs(`تم جمع ${products.length+competitors.length+regulation.length} نتيجة حديثة من طبقات البحث`,'ok')}catch(e){logs('تعذر الوصول المباشر · تفعيل وضع العرض الاحتياطي','warn')}}else{await new Promise(r=>setTimeout(r,450));logs('تم اختيار مصادر متخصصة مرتبطة بنوع المهمة','ok')}
+ nodes[1].classList.remove('active');nodes[1].classList.add('done');nodes[2].classList.add('active');progressTxt.textContent='41%';logs('استخراج الإشارات وتصفية النتائج حسب الهدف','ok');await new Promise(r=>setTimeout(r,550));let items=[];
+ if(live){items=[...live.products,...live.competitors,...live.regulation].filter((x,i,a)=>x.title&&a.findIndex(y=>y.title===x.title)===i).slice(0,3);showLiveFindings(items);logs(`تم اختيار ${items.length} إشارات أولية قابلة للتحليل`,'dim')}else{showFallbackFindings(scenario);items=scenario.findings.map((f,i)=>({title:f.title,link:'#',kind:i===0?'المنتجات':i===1?'المنافسون':'المصادر'}));logs('تم تحميل بيانات العرض المناسبة لنوع المهمة','dim')}
+ nodes[2].classList.remove('active');nodes[2].classList.add('done');nodes[3].classList.add('active');progressTxt.textContent='57%';logs(`ربط الإشارات وتحليل الأثر · ${scenario.title}`,'ok');await new Promise(r=>setTimeout(r,700));logs('نتيجة الربط: توجد إشارة تستحق قرارًا تشغيليًا','ok');
+ const score=live?Math.min(97,scenario.score+Math.min(items.length,3)):scenario.score;const evidenceCount=live?(items.length||0):3;if($('#decisionScore'))$('#decisionScore').textContent=`ثقة القرار ${score}%`;if($('#evidenceCount'))$('#evidenceCount').textContent=live?`${evidenceCount} مصادر حية`:scenario.evidence;if($('#evidenceReason'))$('#evidenceReason').textContent=live?'تم دعم التحليل بنتائج ويب حديثة قابلة للفتح.':scenario.evidenceReason;if($('#impactText'))$('#impactText').textContent=scenario.impact;if($('#impactReason'))$('#impactReason').textContent=scenario.impactReason;if($('#actionText'))$('#actionText').textContent=scenario.action;if($('#actionReason'))$('#actionReason').textContent=scenario.actionReason;if($('#evidenceStrip'))$('#evidenceStrip').innerHTML=items.slice(0,3).map((x,i)=>`<div class="evidenceItem"><span>${esc(x.title||('إشارة '+(i+1)))}</span>${x.link&&x.link!=='#'?`<a href="${esc(x.link)}" target="_blank" rel="noopener">فتح الدليل ↗</a>`:'<span>دليل العرض</span>'}</div>`).join('');
+ nodes[3].classList.remove('active');nodes[3].classList.add('done');nodes[4].classList.add('active');progressTxt.textContent='74%';logs(`اتخاذ القرار: ${scenario.action}`,'ok');await new Promise(r=>setTimeout(r,650));nodes[4].classList.remove('active');nodes[4].classList.add('done');nodes[5].classList.add('active');progressTxt.textContent='91%';logs('تحويل القرار إلى خطة إجراء قابلة للمراجعة','warn');await new Promise(r=>setTimeout(r,600));nodes[5].classList.remove('active');nodes[5].classList.add('done');progressTxt.textContent='100%';logs('اكتملت المهمة · القرار موثق والإجراء جاهز','ok');state.className='execState done';state.innerHTML='<i class="miniDot"></i><span>الإجراء جاهز</span>';
+ $('#resultTitle').textContent=scenario.title;$('#resultText').textContent=scenario.result;$('#confidence').textContent=`${score}%`;$('#auditLine').textContent=live?'سجل التدقيق: LIVE-WEB-SCAN · مصادر حية · تحليل متعدد الإشارات · قرار موثق':`سجل التدقيق: DEMO-SCENARIO · ${scenario===SCENARIOS.price?'مطابقة سعرية':'سيناريو '+scenario.title} · قرار موثق`;if(insight)insight.classList.add('show');result.classList.add('show')}
+run.onclick=e=>{e.preventDefault();history.replaceState(null,'','#workspace');runMission()};$$('.chip').forEach(c=>c.onclick=()=>{mission.value=c.dataset.m;runMission()});
+const createAction=$('#createAction');if(createAction)createAction.onclick=()=>{createAction.classList.add('done');createAction.textContent='✓ تم إنشاء خطة الإجراء';const audit=$('#auditLine');if(audit)audit.textContent='سجل التدقيق: ACTION-CREATED · NX-7F42-LEAP · خطة الإجراء أُنشئت بنجاح';const state=$('#execState');if(state){state.className='execState done';state.innerHTML='<i class="miniDot"></i><span>الإجراء جاهز</span>'}if($('#actionText'))$('#actionText').textContent='الخطة جاهزة للتنفيذ';if($('#actionReason'))$('#actionReason').textContent='تم تحويل القرار إلى خطوة تشغيلية يمكن إسنادها للفريق.'};
+const openEvidence=$('#openEvidence');if(openEvidence)openEvidence.onclick=()=>{const audit=$('#auditLine');if(audit)audit.textContent='الأدلة: نتائج ويب · إشارات مستخرجة · روابط سببية · مستوى ثقة · قابل للتدقيق';const insight=$('#insightPanel');if(insight)insight.classList.add('show');insight?.scrollIntoView({behavior:'smooth',block:'center'})};
+$$('.demoSwitch button').forEach(b=>b.onclick=()=>{$$('.demoSwitch button').forEach(x=>x.classList.remove('active'));b.classList.add('active');const m=b.dataset.mode;if(m==='observe')mission.value='راقب المنتجات والمنافسين والموردين والجهات الرسمية واكتشف التغيّرات المهمة.';if(m==='reason')mission.value='اربط الإشارات المختلفة وحدد الفرصة أو المخاطر الأكثر تأثيرًا.';if(m==='act')mission.value='بعد التحقق، حوّل أهم إشارة إلى إجراء قابل للتنفيذ مع سجل تدقيق.'});
+</script></body></html>
