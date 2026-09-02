@@ -68,17 +68,18 @@ def build_research_plan(
 
     for need in goal_plan.research_needs:
         domain = need.domain
-        has_entities = any(entity.type == domain or domain in entity.attributes.get("domains", []) for entity in context.entities.values())
+        has_entities = any(
+            entity.type == domain or domain in entity.attributes.get("domains", [])
+            for entity in context.entities.values()
+        )
         has_evidence = any(
-            domain in (evidence.source or "") or domain in str(evidence.claim).lower()
+            domain in (evidence.source or "").lower() or domain in str(evidence.claim).lower()
             for evidence in context.evidence.values()
         )
         impacted = domain in by_domain
 
-        # A domain is a genuine research gap when the plan asks for it but
-        # the current context does not contain enough direct evidence.
         if not has_entities and not has_evidence:
-            priority = 90 if impacted else max(60, 100 - need.priority)
+            priority = min(100, need.priority + (15 if impacted else 0))
             tasks.append(
                 ResearchTask(
                     domain=domain,
