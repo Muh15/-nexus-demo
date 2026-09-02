@@ -4,7 +4,7 @@ from connectors.file_connector import FileConnector
 from core.action_executor import ActionExecutor, draft_email_handler
 from core.change_detector import detect_change, detect_record_changes
 from core.context_builder import build_context
-from core.goal_planner import build_goal_plan, parse_goal
+from core.goal_planner import build_goal_plan, classify_goal, parse_goal
 from core.impact import assess_change
 from core.intelligence_graph import IntelligenceGraph
 from core.memory import MemoryStore
@@ -121,11 +121,24 @@ def test_goal_planner_is_domain_agnostic_and_prioritizes_research_needs():
     goal = parse_goal("Reduce operating cost by 10% within 90 days", ["Do not change quality", "Do not break active contracts"])
     plan = build_goal_plan(goal)
     assert goal.target_value == 10 and goal.target_unit == "%" and goal.horizon == "90 days"
+    assert plan.profile.key == "cost"
     assert {"operations", "suppliers", "contracts"}.issubset(plan.domains())
 
 
+def test_goal_classifier_is_shared_and_structured():
+    revenue = classify_goal("Increase sales revenue by 15%")
+    risk = classify_goal("Reduce compliance risk")
+    customer = classify_goal("تحسين تجربة العملاء")
+    supplier = classify_goal("تحسين شروط الموردين")
+    assert revenue.key == "revenue" and "sales_pipeline" in revenue.evidence_domains
+    assert risk.action_posture == "treat_before_change"
+    assert customer.key == "customer"
+    assert supplier.key == "supplier" and "contracts" in supplier.evidence_domains
+
+
 def test_goal_planner_has_safe_fallback_for_ambiguous_goal():
-    assert build_goal_plan(parse_goal("تحسين تجربة العملاء")).domains() == ["business_context"]
+    plan = build_goal_plan(parse_goal("تحسين تجربة العملاء"))
+    assert plan.domains() == ["customers", "sales_pipeline"]
 
 
 def test_intelligence_graph_projects_context_without_owning_source_data():
@@ -195,7 +208,7 @@ def test_goal_profiles_produce_distinct_safe_decisions():
     revenue = reason_from_evidence("Increase sales revenue by 15%", [], context)
     risk = reason_from_evidence("Reduce compliance risk", [], context)
     customer = reason_from_evidence("تحسين تجربة العملاء", [], context)
-    assert "مبيعات" not in revenue.recommended_action or "تجربة" in revenue.recommended_action
+    assert "مبيعات" in revenue.recommended_action
     assert "مخاطر" in risk.recommended_action
     assert "العملاء" in customer.recommended_action
     assert revenue.title != risk.title != customer.title
@@ -204,9 +217,11 @@ def test_goal_profiles_produce_distinct_safe_decisions():
 def test_supplier_goal_profile_works_in_arabic_and_english():
     context = BusinessContext()
     context.add_evidence(Evidence("sup-1", "supplier", "capacity", "25%", confidence=82))
-    decision = reason_from_evidence("تحسين شروط الموردين", [], context)
-    assert decision.title.startswith("قرار الموردين")
-    assert "المورد" in decision.recommended_action
+    arabic = reason_from_evidence("تحسين شروط الموردين", [], context)
+    english = reason_from_evidence("Improve supplier terms", [], context)
+    assert arabic.title.startswith("قرار الموردين")
+    assert "المورد" in arabic.recommended_action
+    assert english.title.startswith("قرار الموردين")
 
 
 def test_action_executor_blocks_until_approval_and_then_executes_safe_draft():
