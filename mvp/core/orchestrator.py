@@ -9,6 +9,7 @@ from typing import Any, Callable, Iterable
 from uuid import uuid4
 
 from .action_executor import ActionExecutor, ActionResult, draft_email_handler
+from .authorization import authorize_approval
 from .context_builder import build_context
 from .goal_planner import Goal, GoalPlan, GoalProfile, ResearchNeed, build_goal_plan, parse_goal
 from .impact import ImpactAssessment
@@ -162,24 +163,27 @@ class MissionOrchestrator:
         if mission.stage == "action_planned" and mission.action_plan is not None: return mission
         if mission.stage != "decide" or not mission.decision: raise ValueError("Decision is required before action planning")
         mission.action_plan = plan_action(str(mission.decision.get("recommended_action", "")), target=target, action_type=action_type, body=body)
+        mission.action_plan.payload["tenant_id"] = mission.tenant_id
         mission.transition("action_planned", "تم إنشاء خطة إجراء منفصلة عن القرار."); return mission
 
-    def approve(self, mission: MissionState) -> MissionState:
+    def approve(self, mission: MissionState, *, actor_subject: str | None = None, actor_role: str | None = None) -> MissionState:
         if mission.stage == "approved": return mission
         if mission.stage != "action_planned" or mission.action_plan is None: raise ValueError("Action plan is required before approval")
+        authorization = authorize_approval(actor_role=actor_role)
+        if not authorization.allowed: raise PermissionError(authorization.reason)
         if not mission.action_plan.policy.allowed: raise PermissionError(mission.action_plan.policy.reason)
-        mission.action_plan = ActionPlan(action_type=mission.action_plan.action_type, description=mission.action_plan.description, policy=mission.action_plan.policy, payload={**mission.action_plan.payload, "approved": True})
-        mission.transition("approved", "تم اعتماد الإجراء بواسطة المصرّح له."); return mission
+        fingerprint = str(mission.action_plan.payload.get("action_fingerprint", ""))
+        mission.action_plan = ActionPlan(action_type=mission.action_plan.action_type, description=mission.action_plan.description, policy=mission.action_plan.policy, payload={**mission.action_plan.payload, "approved": True, "approved_fingerprint": fingerprint, "approved_by_subject": actor_subject, "approved_by_role": actor_role, "approved_at": utc_now()})
+        mission.transition("approved", "تم اعتماد الإجراء بواسطة المصرّح له.", approved_by=actor_subject, approval_fingerprint=fingerprint); return mission
 
-    def execute(self, mission: MissionState) -> MissionState:
+    def execute(self, mission: MissionState, *, actor_subject: str | None = None, actor_role: str | None = None) -> MissionState:
         if mission.stage in {"executed", "verified"}: return mission
         if mission.stage != "approved" or mission.action_plan is None: raise ValueError("Approved action plan is required before execution")
-        mission.action_result = self._action_executor.execute(mission.action_plan)
+        mission.action_result = self._action_executor.execute(mission.action_plan, tenant_id=mission.tenant_id, actor_role=actor_role, actor_subject=actor_subject)
         if mission.action_result.status != "completed": raise ValueError(mission.action_result.message)
-        mission.transition("executed", "تم تنفيذ الإجراء.", execution_id=mission.action_result.execution_id); return mission
+        mission.transition("executed", "تم تنفيذ الإجراء.", execution_id=mission.action_result.execution_id, actor_subject=actor_subject); return mission
 
     def complete_demo_execution(self, mission: MissionState) -> MissionState:
-        """Backward-compatible demo entry point; delegates to the real lifecycle executor."""
         return self.execute(mission)
 
     def verify(self, mission: MissionState) -> MissionState:
@@ -190,5 +194,4 @@ class MissionOrchestrator:
         mission.transition("verified", "تم التحقق من نتيجة الإجراء.", execution_id=mission.action_result.execution_id); return mission
 
     def verify_demo(self, mission: MissionState) -> MissionState:
-        """Backward-compatible demo verification entry point."""
         return self.verify(mission)
