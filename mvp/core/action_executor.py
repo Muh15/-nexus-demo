@@ -4,7 +4,7 @@ from dataclasses import dataclass, field, replace
 from typing import Any, Callable
 from uuid import uuid4
 
-from .planner import ActionPlan
+from .planner import ActionPlan, action_fingerprint
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,6 +30,20 @@ class ActionExecutor:
             raise ValueError(f"action handler already registered: {action_type}")
         self._handlers[action_type] = handler
 
+    @staticmethod
+    def _approval_is_bound(plan: ActionPlan) -> bool:
+        """Approval must match the exact action payload being executed."""
+        if not plan.payload.get("approval_required"):
+            return True
+        expected = str(plan.payload.get("action_fingerprint", ""))
+        actual = action_fingerprint(
+            plan.action_type,
+            plan.payload.get("target"),
+            dict(plan.payload.get("body", {})),
+        )
+        approved = str(plan.payload.get("approved_fingerprint", ""))
+        return bool(expected and expected == actual and approved == actual)
+
     def execute(self, plan: ActionPlan) -> ActionResult:
         if not plan.policy.allowed:
             return ActionResult(action_type=plan.action_type, status="blocked", message=plan.policy.reason)
@@ -38,6 +52,12 @@ class ActionExecutor:
                 action_type=plan.action_type,
                 status="awaiting_approval",
                 message="Explicit approval is required before execution.",
+            )
+        if not self._approval_is_bound(plan):
+            return ActionResult(
+                action_type=plan.action_type,
+                status="blocked",
+                message="Approval is no longer valid because the action payload changed.",
             )
         handler = self._handlers.get(plan.action_type)
         if handler is None:
