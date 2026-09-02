@@ -189,6 +189,26 @@ def test_evidence_reasoner_changes_confidence_with_evidence_quality():
     assert decision.confidence == 95
 
 
+def test_goal_profiles_produce_distinct_safe_decisions():
+    context = BusinessContext()
+    context.add_evidence(Evidence("rev-1", "crm", "pipeline", "strong", confidence=88))
+    revenue = reason_from_evidence("Increase sales revenue by 15%", [], context)
+    risk = reason_from_evidence("Reduce compliance risk", [], context)
+    customer = reason_from_evidence("تحسين تجربة العملاء", [], context)
+    assert "مبيعات" not in revenue.recommended_action or "تجربة" in revenue.recommended_action
+    assert "مخاطر" in risk.recommended_action
+    assert "العملاء" in customer.recommended_action
+    assert revenue.title != risk.title != customer.title
+
+
+def test_supplier_goal_profile_works_in_arabic_and_english():
+    context = BusinessContext()
+    context.add_evidence(Evidence("sup-1", "supplier", "capacity", "25%", confidence=82))
+    decision = reason_from_evidence("تحسين شروط الموردين", [], context)
+    assert decision.title.startswith("قرار الموردين")
+    assert "المورد" in decision.recommended_action
+
+
 def test_action_executor_blocks_until_approval_and_then_executes_safe_draft():
     plan = plan_action("إعداد مسودة تفاوض", target="ABC Industrial")
     executor = ActionExecutor({"draft_email": draft_email_handler})
