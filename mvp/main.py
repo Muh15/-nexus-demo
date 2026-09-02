@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import re
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
@@ -10,7 +9,6 @@ from uuid import uuid4
 from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
-from connectors.file_connector import FileConnector
 from connectors.normalize import normalize_records
 from core.action_executor import ActionResult
 from core.models import BusinessContext, Evidence
@@ -118,13 +116,13 @@ SAMPLE_CONTEXT: dict[str, Any] = {
     },
 }
 
+DEFAULT_TENANT = "demo-tenant"
+TENANT_PATTERN = __import__("re").compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$")
 INGESTED_DATA: dict[str, list[dict[str, Any]]] = {}
 MISSION_DB_PATH = os.getenv("NEXUS_DB_PATH", "nexus_mvp.sqlite3")
 MISSION_STORE = SQLiteMissionStore(MISSION_DB_PATH)
 MISSIONS: dict[tuple[str, str], Mission] = {}
 RUNTIME: MissionRuntime = build_runtime()
-TENANT_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$")
-DEFAULT_TENANT = os.getenv("NEXUS_DEFAULT_TENANT", "demo-tenant")
 
 
 def utc_now() -> str:
@@ -182,6 +180,11 @@ def _context_from_signals(signals: list[Signal]) -> BusinessContext:
             )
         )
     return context
+
+
+def reason(goal: str, constraints: list[str], signals: list[Signal]) -> Decision:
+    decision = reason_from_evidence(goal, constraints, _context_from_signals(signals))
+    return Decision(**decision.as_dict())
 
 
 def _run_mission(goal: str, constraints: list[str], signals: list[Signal], tenant_id: str):
@@ -304,12 +307,11 @@ def create_mission(request: MissionRequest, tenant_id: str = Depends(tenant_cont
 
 @app.get("/api/missions", response_model=list[Mission])
 def list_missions(tenant_id: str = Depends(tenant_context)) -> list[Mission]:
-    missions: list[Mission] = []
-    for mission_id in MISSION_STORE.list_ids(tenant_id=tenant_id):
-        mission = _load_mission(tenant_id, mission_id)
-        if mission is not None:
-            missions.append(mission)
-    return missions
+    return [
+        mission
+        for mission_id in MISSION_STORE.list_ids(tenant_id=tenant_id)
+        if (mission := _load_mission(tenant_id, mission_id)) is not None
+    ]
 
 
 @app.get("/api/missions/{mission_id}", response_model=Mission)
@@ -357,7 +359,7 @@ def execute_mission(mission_id: str, tenant_id: str = Depends(tenant_context)) -
         target=(mission.action or {}).get("target"),
     )
     action_plan.payload["approved"] = True
-    result = RUNTIME.action_executor.execute(action_plan)
+    result = RUNTIME.orchestrator.action_executor.execute(action_plan)
     if result.status != "completed":
         raise HTTPException(status_code=409, detail=result.message or result.status)
     execution_id = f"EXE-{uuid4().hex[:12].upper()}"
@@ -388,7 +390,7 @@ def verify_mission(mission_id: str, tenant_id: str = Depends(tenant_context)) ->
         output=dict(action.get("output") or {}),
         message=str(action.get("result_message", "")),
     )
-    verification = RUNTIME.verifier.verify(result)
+    verification = RUNTIME.orchestrator.verifier.verify(result)
     mission.verification = {
         "status": verification.status,
         "checks": verification.checks,
