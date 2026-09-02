@@ -65,6 +65,18 @@ class MissionOrchestrator:
         self._action_executor = action_executor or ActionExecutor({"draft_email": draft_email_handler})
         self._verifier = verifier or ActionVerifier({"draft_email": draft_email_verifier})
 
+    @property
+    def action_executor(self) -> ActionExecutor:
+        return self._action_executor
+
+    @property
+    def verifier(self) -> ActionVerifier:
+        return self._verifier
+
+    @property
+    def research_executor(self) -> ResearchExecutor:
+        return self._research_executor
+
     def create(
         self,
         *,
@@ -120,6 +132,8 @@ class MissionOrchestrator:
         return mission
 
     def plan(self, mission: MissionState, *, target: str | None = None) -> MissionState:
+        if mission.stage == "action_planned" and mission.action_plan is not None:
+            return mission
         if mission.stage != "decide" or not mission.decision:
             raise ValueError("Decision is required before action planning")
         recommended = str(mission.decision.get("recommended_action", ""))
@@ -128,6 +142,8 @@ class MissionOrchestrator:
         return mission
 
     def approve(self, mission: MissionState) -> MissionState:
+        if mission.stage == "approved":
+            return mission
         if mission.stage != "action_planned" or mission.action_plan is None:
             raise ValueError("Action plan is required before approval")
         if not mission.action_plan.policy.allowed:
@@ -137,6 +153,8 @@ class MissionOrchestrator:
         return mission
 
     def execute(self, mission: MissionState) -> MissionState:
+        if mission.stage == "executed":
+            return mission
         if mission.stage != "approved" or mission.action_plan is None:
             raise ValueError("Approved action plan is required before execution")
         mission.action_result = self._action_executor.execute(mission.action_plan)
@@ -147,6 +165,8 @@ class MissionOrchestrator:
         return mission
 
     def verify(self, mission: MissionState) -> MissionState:
+        if mission.stage == "verified":
+            return mission
         if mission.stage != "executed" or mission.action_result is None:
             raise ValueError("Successful execution is required before verification")
         mission.verification = self._verifier.verify(mission.action_result)
