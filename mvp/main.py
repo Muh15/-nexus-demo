@@ -10,11 +10,14 @@ from pydantic import BaseModel, Field
 
 from connectors.file_connector import FileConnector
 from connectors.normalize import normalize_records
+from core.orchestrator import MissionOrchestrator
+from core.reasoner import reason_from_evidence
+from core.research_executor import ResearchExecutor, context_provider
 
 app = FastAPI(
     title="NEXUS MVP",
-    version="0.2.0",
-    description="Goal-driven AI intelligence: Observe → Understand → Reason → Decide → Act → Verify",
+    version="0.3.0",
+    description="Goal-driven AI intelligence: Observe → Understand → Research → Reason → Decide → Act → Verify",
 )
 
 
@@ -32,6 +35,7 @@ class SourceType(str, Enum):
     SUPPLIER = "supplier"
     MARKET = "market"
     FILE = "file"
+    CRM = "crm"
 
 
 class Signal(BaseModel):
@@ -61,12 +65,22 @@ class Decision(BaseModel):
     rationale: list[str]
     recommended_action: str
     expected_impact: str
+    evidence_ids: list[str] = Field(default_factory=list)
+    evidence_count: int = 0
+    evidence_confidence: int = 0
 
 
 class AuditEvent(BaseModel):
     timestamp: str
     stage: str
     message: str
+
+
+class ResearchSummary(BaseModel):
+    domains: list[str] = Field(default_factory=list)
+    completed: int = 0
+    unavailable: int = 0
+    evidence_added: int = 0
 
 
 class Mission(BaseModel):
@@ -77,6 +91,7 @@ class Mission(BaseModel):
     constraints: list[str]
     sources_used: list[SourceType]
     signals: list[Signal]
+    research: ResearchSummary = Field(default_factory=ResearchSummary)
     decision: Decision
     action: dict[str, Any] | None = None
     verification: dict[str, Any] | None = None
@@ -135,33 +150,65 @@ def log_event(audit: list[AuditEvent], stage: str, message: str) -> None:
 
 
 def reason(goal: str, constraints: list[str], signals: list[Signal]) -> Decision:
-    normalized = goal.lower()
-    cost_goal = any(token in normalized for token in ["cost", "تكلفة", "مصروف", "مصاريف", "خفض"])
-    if cost_goal:
-        return Decision(
-            title="ابدأ التفاوض قبل قبول الزيادة",
-            summary="NEXUS وجد فرصة لخفض الأثر المتوقع على التكلفة دون كسر العقد أو تغيير الجودة.",
-            priority="high",
-            confidence=94,
-            rationale=[
-                "المورد الرئيسي يطلب +7% رغم أن مؤشر السوق تحرك -3%.",
-                "حجم الإنفاق الحالي يجعل الزيادة مؤثرة ماليًا.",
-                "العقد يفتح نافذة تفاوض آمنة قبل سريان الزيادة.",
-                "وجود مورد بديل يمنح الشركة ورقة تفاوض دون التزام فوري بالتحول.",
-                *(["تم إدخال بيانات أعمال جديدة عبر Connector الملفات."] if INGESTED_DATA else []),
-            ],
-            recommended_action="إرسال طلب تفاوض للمورد ABC يستهدف تثبيت السعر أو خفض الزيادة إلى حد مقبول قبل تاريخ السريان.",
-            expected_impact="تقليل الزيادة المتوقعة مع حماية الجودة واستمرارية التوريد.",
-        )
-    return Decision(
-        title="تحديد تدخل تشغيلي مبني على الإشارات الحالية",
-        summary="NEXUS جمع الإشارات ذات الصلة بالهدف وحدد نقطة التدخل الأعلى أولوية.",
-        priority="medium",
-        confidence=82,
-        rationale=["تم تحليل الإشارات الأكثر ارتباطًا بالهدف.", "تمت موازنة الأثر مقابل القيود المحددة للمهمة."],
-        recommended_action="مراجعة نقطة التدخل الأعلى أثرًا ثم اعتماد إجراء قابل للقياس.",
-        expected_impact="قرار أسرع مع مسار واضح للاختبار والتحقق.",
+    """Compatibility wrapper used by the smoke tests and demo surface."""
+    from core.context_builder import build_context
+
+    rows = [
+        {
+            "supplier": signal.title,
+            "value": signal.value,
+            "impact": signal.impact,
+            "source": signal.source.value,
+        }
+        for signal in signals
+    ]
+    context = build_context(rows, source="api-signals")
+    decision = reason_from_evidence(goal, constraints, context)
+    return Decision(**decision.as_dict())
+
+
+def _research_executor() -> ResearchExecutor:
+    """Local deterministic providers for MVP; external integrations stay replaceable."""
+    executor = ResearchExecutor()
+    for connector, source in {
+        "file": "file",
+        "supplier": "supplier_connector",
+        "erp": "erp_connector",
+        "contract": "contract_connector",
+        "market": "market_connector",
+        "crm": "crm_connector",
+        "web": "web_connector",
+    }.items():
+        executor.register(connector, context_provider(connector, source, confidence=82))
+    return executor
+
+
+def _run_mission(goal: str, constraints: list[str], signals: list[Signal]):
+    records = [
+        {
+            "supplier": signal.title,
+            "monthly_spend": signal.value,
+            "impact": signal.impact,
+            "source": signal.source.value,
+        }
+        for signal in signals
+    ]
+    orchestrator = MissionOrchestrator(
+        lambda mission_goal, mission_constraints, context: reason_from_evidence(
+            mission_goal, mission_constraints, context
+        ).as_dict(),
+        research_executor=_research_executor(),
     )
+    mission = orchestrator.create(
+        tenant_id="demo-tenant",
+        goal=goal,
+        constraints=constraints,
+        records=records,
+        source="api-signals",
+    )
+    orchestrator.research(mission)
+    orchestrator.decide(mission)
+    return mission
 
 
 MISSIONS: dict[str, Mission] = {}
@@ -169,7 +216,7 @@ MISSIONS: dict[str, Mission] = {}
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "service": "nexus-mvp", "version": "0.2.0"}
+    return {"status": "ok", "service": "nexus-mvp", "version": "0.3.0"}
 
 
 @app.get("/api/context")
@@ -206,13 +253,44 @@ def create_mission(request: MissionRequest) -> Mission:
     mission_id = f"NXS-{uuid4().hex[:10].upper()}"
     audit: list[AuditEvent] = []
     log_event(audit, "mission", "تم استلام المهمة وفهم الهدف والقيود.")
-    log_event(audit, "observe", "تم جمع الإشارات من المصادر المتصلة.")
+
     signals = sample_signals() + signals_from_ingestion()
-    log_event(audit, "understand", f"تم تطبيع وربط {len(signals)} إشارات عبر {len(set(s.source for s in signals))} مصادر.")
-    decision = reason(request.goal, request.constraints, signals)
-    log_event(audit, "reason", "تم تقييم التأثير والقيود وربط الإشارات لصناعة القرار.")
-    log_event(audit, "decide", f"القرار جاهز للاعتماد بثقة {decision.confidence}%.")
-    mission = Mission(id=mission_id, created_at=utc_now(), status=MissionStatus.AWAITING_APPROVAL, goal=request.goal, constraints=request.constraints, sources_used=sorted(set(s.source for s in signals), key=lambda x: x.value), signals=signals, decision=decision, audit=audit)
+    log_event(audit, "observe", "تم جمع الإشارات من المصادر الحالية.")
+
+    core_mission = _run_mission(request.goal, request.constraints, signals)
+    log_event(
+        audit,
+        "understand",
+        f"تم بناء السياق وتحديد {len(core_mission.research_plan.pending()) if core_mission.research_plan else 0} فجوات بحث.",
+    )
+    log_event(audit, "research", "تم تنفيذ خطة البحث وجمع الأدلة المتاحة قبل القرار.")
+
+    decision = Decision(**(core_mission.decision or {}))
+    completed = sum(1 for result in core_mission.research_results if result.status == "completed")
+    unavailable = sum(1 for result in core_mission.research_results if result.status == "unavailable")
+    evidence_added = sum(len(result.evidence) for result in core_mission.research_results)
+    research_domains = core_mission.goal_plan.domains() if core_mission.goal_plan else []
+
+    log_event(audit, "reason", "تم تقييم الأدلة والقيود لإنتاج قرار مبني على ما تم جمعه.")
+    log_event(audit, "decide", f"القرار جاهز للاعتماد بثقة {decision.confidence}% من {decision.evidence_count} دليل.")
+
+    mission = Mission(
+        id=mission_id,
+        created_at=utc_now(),
+        status=MissionStatus.AWAITING_APPROVAL,
+        goal=request.goal,
+        constraints=request.constraints,
+        sources_used=sorted(set(s.source for s in signals), key=lambda x: x.value),
+        signals=signals,
+        research=ResearchSummary(
+            domains=research_domains,
+            completed=completed,
+            unavailable=unavailable,
+            evidence_added=evidence_added,
+        ),
+        decision=decision,
+        audit=audit,
+    )
     MISSIONS[mission_id] = mission
     return mission
 
