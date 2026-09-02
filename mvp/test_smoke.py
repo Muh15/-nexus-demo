@@ -3,6 +3,7 @@ from io import BytesIO
 from connectors.file_connector import FileConnector
 from core.change_detector import detect_change, detect_record_changes
 from core.context_builder import build_context
+from core.goal_planner import build_goal_plan, parse_goal
 from core.memory import MemoryStore
 from core.models import BusinessContext, Entity, Evidence, Relationship
 from core.planner import plan_action
@@ -121,3 +122,24 @@ def test_record_change_detection_uses_deterministic_identity():
 
     assert any(item.kind == "new" for item in first)
     assert all(item.kind == "unchanged" for item in second)
+
+
+def test_goal_planner_is_domain_agnostic_and_prioritizes_research_needs():
+    goal = parse_goal(
+        "Reduce operating cost by 10% within 90 days",
+        ["Do not change quality", "Do not break active contracts"],
+    )
+    plan = build_goal_plan(goal)
+
+    assert goal.target_value == 10
+    assert goal.target_unit == "%"
+    assert goal.horizon == "90 days"
+    assert "operations" in plan.domains()
+    assert "suppliers" in plan.domains()
+    assert "contracts" in plan.domains()
+
+
+def test_goal_planner_has_safe_fallback_for_ambiguous_goal():
+    goal = parse_goal("تحسين تجربة العملاء")
+    plan = build_goal_plan(goal)
+    assert plan.domains() == ["business_context"]
