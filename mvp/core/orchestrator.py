@@ -6,14 +6,15 @@ from uuid import uuid4
 
 from .action_executor import ActionExecutor, ActionResult, draft_email_handler
 from .context_builder import build_context
-from .goal_planner import GoalPlan, build_goal_plan, parse_goal
+from .goal_planner import Goal, GoalPlan, GoalProfile, ResearchNeed, build_goal_plan, parse_goal
 from .impact import ImpactAssessment
 from .intelligence_graph import IntelligenceGraph
 from .mission_intelligence import MissionIntelligence
-from .models import BusinessContext, utc_now
+from .models import BusinessContext, Entity, Evidence, Relationship, utc_now
 from .planner import ActionPlan, plan_action
+from .policy import ActionPolicy, ActionRisk
 from .research_executor import ResearchExecutor, ResearchResult
-from .research_planner import ResearchPlan, build_research_plan
+from .research_planner import ResearchPlan, ResearchTask, build_research_plan
 from .verifier import ActionVerifier, VerificationResult, draft_email_verifier
 
 
@@ -44,24 +45,11 @@ class MissionState:
         self.log(stage, message, **metadata)
 
     def snapshot(self) -> dict[str, Any]:
-        return {
-            "id": self.id,
-            "tenant_id": self.tenant_id,
-            "goal": self.goal,
-            "constraints": list(self.constraints),
-            "stage": self.stage,
-            "context": _plain(self.context),
-            "goal_plan": _plain(self.goal_plan),
-            "intelligence_graph": _plain(self.intelligence_graph),
-            "impact_assessments": _plain(self.impact_assessments),
-            "research_plan": _plain(self.research_plan),
-            "research_results": _plain(self.research_results),
-            "decision": _plain(self.decision),
-            "action_plan": _plain(self.action_plan),
-            "action_result": _plain(self.action_result),
-            "verification": _plain(self.verification),
-            "audit": _plain(self.audit),
-        }
+        return {name: _plain(getattr(self, name)) for name in (
+            "id", "tenant_id", "goal", "constraints", "stage", "context", "goal_plan",
+            "intelligence_graph", "impact_assessments", "research_plan", "research_results",
+            "decision", "action_plan", "action_result", "verification", "audit",
+        )}
 
 
 Reasoner = Callable[[str, list[str], BusinessContext], dict[str, Any]]
@@ -81,35 +69,127 @@ def _plain(value: Any) -> Any:
     return str(value)
 
 
+def _restore_context(data: dict[str, Any] | None) -> BusinessContext:
+    context = BusinessContext()
+    data = data or {}
+    for item in data.get("entities", []):
+        context.add_entity(Entity(str(item["id"]), str(item["type"]), str(item["name"]), dict(item.get("attributes", {}))))
+    for item in data.get("evidence", []):
+        context.add_evidence(Evidence(
+            id=str(item["id"]), source=str(item.get("source", "")), claim=str(item.get("claim", "")),
+            value=item.get("value"), confidence=int(item.get("confidence", 0)),
+            collected_at=str(item.get("collected_at", utc_now())), locator=item.get("locator"),
+            metadata=dict(item.get("metadata", {})),
+        ))
+    for item in data.get("relationships", []):
+        context.link(Relationship(
+            source_id=str(item["source_id"]), relation=str(item["relation"]), target_id=str(item["target_id"]),
+            confidence=int(item.get("confidence", 100)), evidence_ids=list(item.get("evidence_ids", [])),
+        ))
+    return context
+
+
+def _restore_goal_plan(data: dict[str, Any] | None) -> GoalPlan | None:
+    if not data:
+        return None
+    goal_data = data.get("goal") or {}
+    profile_data = data.get("profile") or {}
+    goal = Goal(
+        raw=str(goal_data.get("raw", "")), objective=str(goal_data.get("objective", "")),
+        horizon=goal_data.get("horizon"), target_value=goal_data.get("target_value"),
+        target_unit=goal_data.get("target_unit"), constraints=tuple(goal_data.get("constraints", [])),
+    )
+    profile = GoalProfile(
+        key=str(profile_data.get("key", "general")), label=str(profile_data.get("label", "هدف أعمال عام")),
+        evidence_domains=tuple(profile_data.get("evidence_domains", ())), action_posture=str(profile_data.get("action_posture", "measure_before_action")),
+    )
+    needs = [ResearchNeed(str(item["domain"]), str(item["reason"]), int(item.get("priority", 50))) for item in data.get("research_needs", [])]
+    return GoalPlan(goal=goal, profile=profile, research_needs=needs)
+
+
+def _restore_research_plan(data: dict[str, Any] | None) -> ResearchPlan | None:
+    if not data:
+        return None
+    return ResearchPlan(tasks=[ResearchTask(
+        domain=str(item["domain"]), question=str(item["question"]), reason=str(item["reason"]),
+        priority=int(item["priority"]), connector=str(item["connector"]), status=str(item.get("status", "planned")),
+    ) for item in data.get("tasks", [])])
+
+
+def _restore_action_plan(data: dict[str, Any] | None) -> ActionPlan | None:
+    if not data:
+        return None
+    policy_data = data.get("policy") or {}
+    risk = ActionRisk(str(policy_data.get("risk", "high")))
+    policy = ActionPolicy(
+        risk=risk, requires_approval=bool(policy_data.get("requires_approval", True)),
+        allowed=bool(policy_data.get("allowed", False)), reason=str(policy_data.get("reason", "")),
+    )
+    return ActionPlan(
+        action_type=str(data.get("action_type", "draft_email")), description=str(data.get("description", "")),
+        policy=policy, payload=dict(data.get("payload", {})),
+    )
+
+
+def _restore_action_result(data: dict[str, Any] | None) -> ActionResult | None:
+    if not data:
+        return None
+    return ActionResult(
+        action_type=str(data.get("action_type", "")), status=str(data.get("status", "")),
+        output=dict(data.get("output", {})), message=str(data.get("message", "")),
+    )
+
+
+def _restore_verification(data: dict[str, Any] | None) -> VerificationResult | None:
+    if not data:
+        return None
+    return VerificationResult(
+        status=str(data.get("status", "")), checks=list(data.get("checks", [])), details=dict(data.get("details", {})),
+    )
+
+
+def _restore_research_results(data: list[dict[str, Any]]) -> list[ResearchResult]:
+    restored: list[ResearchResult] = []
+    for item in data:
+        evidence = [Evidence(
+            id=str(ev["id"]), source=str(ev.get("source", "")), claim=str(ev.get("claim", "")),
+            value=ev.get("value"), confidence=int(ev.get("confidence", 0)),
+            collected_at=str(ev.get("collected_at", utc_now())), locator=ev.get("locator"),
+            metadata=dict(ev.get("metadata", {})),
+        ) for ev in item.get("evidence", [])]
+        restored.append(ResearchResult(
+            task_domain=str(item.get("task_domain", "")), connector=str(item.get("connector", "")),
+            status=str(item.get("status", "")), evidence=evidence, message=str(item.get("message", "")),
+        ))
+    return restored
+
+
 def mission_from_snapshot(snapshot: dict[str, Any]) -> MissionState:
-    """Restore a persisted mission snapshot without coupling storage to API models."""
+    """Restore a MissionState snapshot so the lifecycle can continue after restart."""
     required = ("id", "tenant_id", "goal", "stage")
     missing = [field for field in required if field not in snapshot]
     if missing:
         raise ValueError(f"Mission snapshot missing fields: {', '.join(missing)}")
-    mission = MissionState(
-        id=str(snapshot["id"]),
-        tenant_id=str(snapshot["tenant_id"]),
-        goal=str(snapshot["goal"]),
-        constraints=[str(item) for item in snapshot.get("constraints", [])],
-        stage=str(snapshot.get("stage", "created")),
+    return MissionState(
+        id=str(snapshot["id"]), tenant_id=str(snapshot["tenant_id"]), goal=str(snapshot["goal"]),
+        constraints=[str(item) for item in snapshot.get("constraints", [])], stage=str(snapshot.get("stage", "created")),
+        context=_restore_context(snapshot.get("context")), goal_plan=_restore_goal_plan(snapshot.get("goal_plan")),
+        intelligence_graph=None,
+        impact_assessments=[ImpactAssessment(str(item["key"]), int(item["score"]), bool(item["relevant"]), str(item["reason"])) for item in snapshot.get("impact_assessments", [])],
+        research_plan=_restore_research_plan(snapshot.get("research_plan")),
+        research_results=_restore_research_results(snapshot.get("research_results", [])),
+        decision=dict(snapshot["decision"]) if snapshot.get("decision") is not None else None,
+        action_plan=_restore_action_plan(snapshot.get("action_plan")),
+        action_result=_restore_action_result(snapshot.get("action_result")),
+        verification=_restore_verification(snapshot.get("verification")),
         audit=list(snapshot.get("audit", [])),
     )
-    return mission
 
 
 class MissionOrchestrator:
     """Coordinates the NEXUS lifecycle while keeping capabilities replaceable."""
 
-    def __init__(
-        self,
-        reasoner: Reasoner,
-        *,
-        intelligence: MissionIntelligence | None = None,
-        research_executor: ResearchExecutor | None = None,
-        action_executor: ActionExecutor | None = None,
-        verifier: ActionVerifier | None = None,
-    ) -> None:
+    def __init__(self, reasoner: Reasoner, *, intelligence: MissionIntelligence | None = None, research_executor: ResearchExecutor | None = None, action_executor: ActionExecutor | None = None, verifier: ActionVerifier | None = None) -> None:
         self._reasoner = reasoner
         self._intelligence = intelligence or MissionIntelligence()
         self._research_executor = research_executor or ResearchExecutor()
@@ -129,8 +209,7 @@ class MissionOrchestrator:
         return self._research_executor
 
     def create(self, *, tenant_id: str, goal: str, constraints: Iterable[str] = (), records: Iterable[dict[str, Any]] = (), source: str = "unknown") -> MissionState:
-        records = list(records)
-        constraints = list(constraints)
+        records = list(records); constraints = list(constraints)
         mission = MissionState(id=f"NXS-{uuid4().hex[:10].upper()}", tenant_id=tenant_id, goal=goal, constraints=constraints)
         mission.transition("observe", "بدأ جمع الإشارات المرتبطة بالمهمة.")
         mission.goal_plan = build_goal_plan(parse_goal(goal, constraints))
@@ -143,54 +222,42 @@ class MissionOrchestrator:
         return mission
 
     def research(self, mission: MissionState) -> MissionState:
-        if mission.stage not in {"understand", "researched"}:
-            raise ValueError(f"Cannot research from stage: {mission.stage}")
-        if mission.research_plan is None:
-            raise ValueError("Research plan is required before execution")
+        if mission.stage not in {"understand", "researched"}: raise ValueError(f"Cannot research from stage: {mission.stage}")
+        if mission.research_plan is None: raise ValueError("Research plan is required before execution")
         mission.transition("researching", "يتم جمع الأدلة اللازمة لسد فجوات المعلومات قبل القرار.", task_count=len(mission.research_plan.pending()))
         mission.research_results = self._research_executor.execute(mission.research_plan, mission.context)
         for result in mission.research_results:
-            for evidence in result.evidence:
-                mission.context.add_evidence(evidence)
+            for evidence in result.evidence: mission.context.add_evidence(evidence)
         unavailable = sum(1 for result in mission.research_results if result.status == "unavailable")
         completed = sum(1 for result in mission.research_results if result.status == "completed")
         mission.transition("researched", "انتهت دورة البحث ويمكن الآن تقييم كفاية الأدلة.", completed=completed, unavailable=unavailable, evidence_added=sum(len(result.evidence) for result in mission.research_results))
         return mission
 
     def decide(self, mission: MissionState) -> MissionState:
-        if mission.stage not in {"understand", "researched", "reason"}:
-            raise ValueError(f"Cannot decide from stage: {mission.stage}")
+        if mission.stage not in {"understand", "researched", "reason"}: raise ValueError(f"Cannot decide from stage: {mission.stage}")
         mission.transition("reason", "يتم تقييم الإشارات والقيود والتغيّرات والأدلة المتاحة.")
         mission.decision = self._reasoner(mission.goal, mission.constraints, mission.context)
         mission.transition("decide", "اكتمل القرار وأصبح جاهزًا لتخطيط الإجراء.")
         return mission
 
     def plan(self, mission: MissionState, *, target: str | None = None) -> MissionState:
-        if mission.stage == "action_planned" and mission.action_plan is not None:
-            return mission
-        if mission.stage != "decide" or not mission.decision:
-            raise ValueError("Decision is required before action planning")
-        recommended = str(mission.decision.get("recommended_action", ""))
-        mission.action_plan = plan_action(recommended, target=target)
+        if mission.stage == "action_planned" and mission.action_plan is not None: return mission
+        if mission.stage != "decide" or not mission.decision: raise ValueError("Decision is required before action planning")
+        mission.action_plan = plan_action(str(mission.decision.get("recommended_action", "")), target=target)
         mission.transition("action_planned", "تم إنشاء خطة إجراء منفصلة عن القرار.")
         return mission
 
     def approve(self, mission: MissionState) -> MissionState:
-        if mission.stage == "approved":
-            return mission
-        if mission.stage != "action_planned" or mission.action_plan is None:
-            raise ValueError("Action plan is required before approval")
-        if not mission.action_plan.policy.allowed:
-            raise PermissionError("Action is blocked by policy")
+        if mission.stage == "approved": return mission
+        if mission.stage != "action_planned" or mission.action_plan is None: raise ValueError("Action plan is required before approval")
+        if not mission.action_plan.policy.allowed: raise PermissionError("Action is blocked by policy")
         mission.action_plan.payload["approved"] = True
         mission.transition("approved", "تم اعتماد الإجراء وفق سياسة NEXUS.")
         return mission
 
     def execute(self, mission: MissionState) -> MissionState:
-        if mission.stage == "executed":
-            return mission
-        if mission.stage != "approved" or mission.action_plan is None:
-            raise ValueError("Approved action plan is required before execution")
+        if mission.stage in {"executed", "verified"}: return mission
+        if mission.stage != "approved" or mission.action_plan is None: raise ValueError("Approved action plan is required before execution")
         mission.action_result = self._action_executor.execute(mission.action_plan)
         if mission.action_result.status != "completed":
             mission.transition("execution_blocked", "تعذر تنفيذ الإجراء ضمن حدود التنفيذ الحالية.", status=mission.action_result.status)
@@ -199,10 +266,8 @@ class MissionOrchestrator:
         return mission
 
     def verify(self, mission: MissionState) -> MissionState:
-        if mission.stage == "verified":
-            return mission
-        if mission.stage != "executed" or mission.action_result is None:
-            raise ValueError("Successful execution is required before verification")
+        if mission.stage == "verified": return mission
+        if mission.stage != "executed" or mission.action_result is None: raise ValueError("Successful execution is required before verification")
         mission.verification = self._verifier.verify(mission.action_result)
         target_stage = "verified" if mission.verification.status == "verified" else "verification_failed"
         mission.transition(target_stage, "تمت مراجعة نتيجة التنفيذ والتحقق منها.", status=mission.verification.status)
