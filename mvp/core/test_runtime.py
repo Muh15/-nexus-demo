@@ -16,3 +16,13 @@ def test_runtime_composes_one_shared_dependency_graph():
 
 def test_legacy_factory_still_returns_orchestrator():
     assert isinstance(build_mission_orchestrator(), MissionOrchestrator)
+
+
+def test_runtime_exports_are_stable_from_core_package():
+    from core import GoalProfile, MissionRuntime, build_runtime, classify_goal
+
+    profile = classify_goal("Increase sales revenue")
+    runtime = build_runtime()
+    assert profile.key == "revenue"
+    assert isinstance(profile, GoalProfile)
+    assert isinstance(runtime, MissionRuntime)
