@@ -1,25 +1,24 @@
 from __future__ import annotations
 
 import os
+import re
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
-from uuid import uuid4
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from connectors.normalize import normalize_records
-from core.action_executor import ActionResult
 from core.models import BusinessContext, Evidence
-from core.planner import plan_action
+from core.orchestrator import MissionState
 from core.reasoner import reason_from_evidence
 from core.runtime import MissionRuntime, build_runtime
-from core.sqlite_store import SQLiteMissionStore
+from core.mission_repository import SQLiteMissionRepository
 
 app = FastAPI(
     title="NEXUS MVP",
-    version="0.7.0",
+    version="0.8.0",
     description="Goal-driven AI intelligence: Observe → Understand → Research → Reason → Decide → Act → Verify",
 )
 
@@ -39,6 +38,8 @@ class SourceType(str, Enum):
     MARKET = "market"
     FILE = "file"
     CRM = "crm"
+    WEB = "web"
+    UNKNOWN = "unknown"
 
 
 class Signal(BaseModel):
@@ -117,12 +118,10 @@ SAMPLE_CONTEXT: dict[str, Any] = {
 }
 
 DEFAULT_TENANT = "demo-tenant"
-TENANT_PATTERN = __import__("re").compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$")
+TENANT_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$")
 INGESTED_DATA: dict[str, list[dict[str, Any]]] = {}
-MISSION_DB_PATH = os.getenv("NEXUS_DB_PATH", "nexus_mvp.sqlite3")
-MISSION_STORE = SQLiteMissionStore(MISSION_DB_PATH)
-MISSIONS: dict[tuple[str, str], Mission] = {}
 RUNTIME: MissionRuntime = build_runtime()
+MISSION_REPOSITORY: SQLiteMissionRepository = RUNTIME.mission_repository
 
 
 def utc_now() -> str:
@@ -162,10 +161,6 @@ def signals_from_ingestion(tenant_id: str) -> list[Signal]:
     return signals
 
 
-def log_event(audit: list[AuditEvent], stage: str, message: str) -> None:
-    audit.append(AuditEvent(timestamp=utc_now(), stage=stage, message=message))
-
-
 def _context_from_signals(signals: list[Signal]) -> BusinessContext:
     context = BusinessContext()
     for signal in signals:
@@ -187,44 +182,111 @@ def reason(goal: str, constraints: list[str], signals: list[Signal]) -> Decision
     return Decision(**decision.as_dict())
 
 
-def _run_mission(goal: str, constraints: list[str], signals: list[Signal], tenant_id: str):
-    records = [
-        {"supplier": signal.title, "monthly_spend": signal.value, "impact": signal.impact, "source": signal.source.value}
-        for signal in signals
-    ]
-    mission = RUNTIME.orchestrator.create(
-        tenant_id=tenant_id,
-        goal=goal,
-        constraints=constraints,
-        records=records,
-        source="api-signals",
+def _signals_from_core(mission: MissionState) -> list[Signal]:
+    result: list[Signal] = []
+    for evidence in mission.context.evidence.values():
+        raw_source = str(evidence.source or "unknown").lower()
+        source = SourceType(raw_source) if raw_source in {item.value for item in SourceType} else SourceType.UNKNOWN
+        metadata = evidence.metadata or {}
+        result.append(
+            Signal(
+                id=evidence.id,
+                source=source,
+                title=str(evidence.claim),
+                value=str(evidence.value),
+                impact=str(metadata.get("impact", "")),
+                confidence=int(evidence.confidence),
+            )
+        )
+    return result
+
+
+def _status_for_stage(stage: str) -> MissionStatus:
+    return {
+        "understand": MissionStatus.ANALYZING,
+        "researching": MissionStatus.ANALYZING,
+        "researched": MissionStatus.ANALYZING,
+        "reason": MissionStatus.ANALYZING,
+        "decide": MissionStatus.AWAITING_APPROVAL,
+        "action_planned": MissionStatus.AWAITING_APPROVAL,
+        "approved": MissionStatus.APPROVED,
+        "executed": MissionStatus.EXECUTED,
+        "verified": MissionStatus.VERIFIED,
+    }.get(stage, MissionStatus.ANALYZING)
+
+
+def _decision_from_core(mission: MissionState) -> Decision:
+    return Decision(**(mission.decision or {
+        "title": "قرار قيد التحليل",
+        "summary": "لم يتم إنتاج قرار بعد.",
+        "priority": "medium",
+        "confidence": 0,
+        "rationale": [],
+        "recommended_action": "",
+        "expected_impact": "",
+    }))
+
+
+def _to_api_mission(mission: MissionState) -> Mission:
+    decision = _decision_from_core(mission)
+    completed = sum(1 for item in mission.research_results if item.status == "completed")
+    unavailable = sum(1 for item in mission.research_results if item.status == "unavailable")
+    evidence_added = sum(len(item.evidence) for item in mission.research_results)
+    action: dict[str, Any] | None = None
+    if mission.action_plan is not None:
+        action = {
+            "type": mission.action_plan.action_type,
+            "status": "approved" if mission.stage == "approved" else (mission.action_result.status if mission.action_result else "planned"),
+            "target": mission.action_plan.payload.get("target"),
+            "description": mission.action_plan.description,
+            "risk": mission.action_plan.policy.risk.value,
+            "approval_required": mission.action_plan.policy.requires_approval,
+        }
+        if mission.action_result is not None:
+            action["output"] = mission.action_result.output
+            action["result_message"] = mission.action_result.message
+    verification = None
+    if mission.verification is not None:
+        verification = {
+            "status": mission.verification.status,
+            "checks": mission.verification.checks,
+            "details": mission.verification.details,
+        }
+    audit = [AuditEvent(timestamp=str(item.get("timestamp", "")), stage=str(item.get("stage", "")), message=str(item.get("message", ""))) for item in mission.audit]
+    return Mission(
+        id=mission.id,
+        tenant_id=mission.tenant_id,
+        created_at=audit[0].timestamp if audit else utc_now(),
+        status=_status_for_stage(mission.stage),
+        goal=mission.goal,
+        constraints=mission.constraints,
+        sources_used=sorted({SourceType(str(ev.source)) if str(ev.source) in {x.value for x in SourceType} else SourceType.UNKNOWN for ev in mission.context.evidence.values()}, key=lambda value: value.value),
+        signals=_signals_from_core(mission),
+        research=ResearchSummary(
+            domains=mission.goal_plan.domains() if mission.goal_plan else [],
+            completed=completed,
+            unavailable=unavailable,
+            evidence_added=evidence_added,
+        ),
+        decision=decision,
+        action=action,
+        verification=verification,
+        audit=audit,
     )
-    RUNTIME.orchestrator.research(mission)
-    RUNTIME.orchestrator.decide(mission)
-    return mission
 
 
-def _persist_mission(mission: Mission) -> Mission:
-    MISSIONS[(mission.tenant_id, mission.id)] = mission
-    MISSION_STORE.save(mission.id, mission.model_dump(mode="json"), utc_now(), tenant_id=mission.tenant_id)
-    return mission
+def _save(mission: MissionState) -> Mission:
+    MISSION_REPOSITORY.save(mission, updated_at=utc_now())
+    return _to_api_mission(mission)
 
 
-def _load_mission(tenant_id: str, mission_id: str) -> Mission | None:
-    cached = MISSIONS.get((tenant_id, mission_id))
-    if cached is not None:
-        return cached
-    payload = MISSION_STORE.get(mission_id, tenant_id=tenant_id)
-    if payload is None:
-        return None
-    mission = Mission.model_validate(payload)
-    MISSIONS[(tenant_id, mission.id)] = mission
-    return mission
+def _get_core(tenant_id: str, mission_id: str) -> MissionState | None:
+    return MISSION_REPOSITORY.get(tenant_id, mission_id)
 
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "service": "nexus-mvp", "version": "0.7.0"}
+    return {"status": "ok", "service": "nexus-mvp", "version": "0.8.0"}
 
 
 @app.get("/api/runtime")
@@ -238,7 +300,7 @@ def context(tenant_id: str = Depends(tenant_context)) -> dict[str, Any]:
         **SAMPLE_CONTEXT,
         "tenant_id": tenant_id,
         "ingested_records": len(INGESTED_DATA.get(tenant_id, [])),
-        "persisted_missions": len(MISSION_STORE.list_ids(tenant_id=tenant_id)),
+        "persisted_missions": len(MISSION_REPOSITORY.list_by_tenant(tenant_id)),
     }
 
 
@@ -269,137 +331,79 @@ def list_ingested(tenant_id: str = Depends(tenant_context)) -> dict[str, Any]:
 
 @app.post("/api/missions", response_model=Mission, status_code=201)
 def create_mission(request: MissionRequest, tenant_id: str = Depends(tenant_context)) -> Mission:
-    audit: list[AuditEvent] = []
-    log_event(audit, "mission", "تم استلام المهمة وفهم الهدف والقيود.")
     signals = sample_signals() + signals_from_ingestion(tenant_id)
-    log_event(audit, "observe", "تم جمع الإشارات من المصادر المسموح بها ضمن مستأجر المهمة.")
-    core_mission = _run_mission(request.goal, request.constraints, signals, tenant_id)
-    pending_count = len(core_mission.research_plan.pending()) if core_mission.research_plan else 0
-    log_event(audit, "understand", f"تم بناء السياق وتحديد {pending_count} فجوات بحث.")
-    log_event(audit, "research", "تم تنفيذ خطة البحث وجمع الأدلة المتاحة قبل القرار.")
-    decision = Decision(**(core_mission.decision or {}))
-    completed = sum(1 for result in core_mission.research_results if result.status == "completed")
-    unavailable = sum(1 for result in core_mission.research_results if result.status == "unavailable")
-    evidence_added = sum(len(result.evidence) for result in core_mission.research_results)
-    research_domains = core_mission.goal_plan.domains() if core_mission.goal_plan else []
-    log_event(audit, "reason", "تم تقييم الأدلة والقيود لإنتاج قرار مبني على ما تم جمعه.")
-    log_event(audit, "decide", f"القرار جاهز للاعتماد بثقة {decision.confidence}% من {decision.evidence_count} دليل.")
-    mission = Mission(
-        id=core_mission.id,
+    records = [
+        {"supplier": signal.title, "monthly_spend": signal.value, "impact": signal.impact, "source": signal.source.value}
+        for signal in signals
+    ]
+    mission = RUNTIME.orchestrator.create(
         tenant_id=tenant_id,
-        created_at=utc_now(),
-        status=MissionStatus.AWAITING_APPROVAL,
         goal=request.goal,
         constraints=request.constraints,
-        sources_used=sorted(set(s.source for s in signals), key=lambda x: x.value),
-        signals=signals,
-        research=ResearchSummary(
-            domains=research_domains,
-            completed=completed,
-            unavailable=unavailable,
-            evidence_added=evidence_added,
-        ),
-        decision=decision,
-        audit=audit,
+        records=records,
+        source="api-signals",
     )
-    return _persist_mission(mission)
+    RUNTIME.orchestrator.research(mission)
+    RUNTIME.orchestrator.decide(mission)
+    return _save(mission)
 
 
 @app.get("/api/missions", response_model=list[Mission])
 def list_missions(tenant_id: str = Depends(tenant_context)) -> list[Mission]:
-    return [
-        mission
-        for mission_id in MISSION_STORE.list_ids(tenant_id=tenant_id)
-        if (mission := _load_mission(tenant_id, mission_id)) is not None
-    ]
+    return [_to_api_mission(mission) for mission in MISSION_REPOSITORY.list_by_tenant(tenant_id)]
 
 
 @app.get("/api/missions/{mission_id}", response_model=Mission)
 def get_mission(mission_id: str, tenant_id: str = Depends(tenant_context)) -> Mission:
-    mission = _load_mission(tenant_id, mission_id)
+    mission = _get_core(tenant_id, mission_id)
     if mission is None:
         raise HTTPException(status_code=404, detail="Mission not found")
-    return mission
+    return _to_api_mission(mission)
 
 
 @app.post("/api/missions/{mission_id}/approve", response_model=Mission)
 def approve_mission(mission_id: str, tenant_id: str = Depends(tenant_context)) -> Mission:
-    mission = get_mission(mission_id, tenant_id)
-    if mission.status == MissionStatus.APPROVED:
-        return mission
-    if mission.status != MissionStatus.AWAITING_APPROVAL:
-        raise HTTPException(status_code=409, detail="Mission is not awaiting approval")
-    proposed = plan_action(mission.decision.recommended_action, target="ABC Industrial")
-    if not proposed.policy.allowed:
-        raise HTTPException(status_code=403, detail=proposed.policy.reason)
-    proposed.payload["approved"] = True
-    mission.status = MissionStatus.APPROVED
-    mission.action = {
-        "type": proposed.action_type,
-        "status": "approved",
-        "target": proposed.payload.get("target"),
-        "description": proposed.description,
-        "risk": proposed.policy.risk.value,
-        "approval_required": proposed.policy.requires_approval,
-        "approved_at": utc_now(),
-    }
-    log_event(mission.audit, "approve", "تم اعتماد خطة الإجراء بعد فحص سياسة NEXUS.")
-    return _persist_mission(mission)
+    mission = _get_core(tenant_id, mission_id)
+    if mission is None:
+        raise HTTPException(status_code=404, detail="Mission not found")
+    if mission.stage == "approved":
+        return _to_api_mission(mission)
+    try:
+        if mission.stage == "decide":
+            RUNTIME.orchestrator.plan(mission, target="ABC Industrial")
+        RUNTIME.orchestrator.approve(mission)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return _save(mission)
 
 
 @app.post("/api/missions/{mission_id}/execute", response_model=Mission)
 def execute_mission(mission_id: str, tenant_id: str = Depends(tenant_context)) -> Mission:
-    mission = get_mission(mission_id, tenant_id)
-    if mission.status in {MissionStatus.EXECUTED, MissionStatus.VERIFIED}:
-        return mission
-    if mission.status != MissionStatus.APPROVED:
+    mission = _get_core(tenant_id, mission_id)
+    if mission is None:
+        raise HTTPException(status_code=404, detail="Mission not found")
+    if mission.stage in {"executed", "verified"}:
+        return _to_api_mission(mission)
+    if mission.stage != "approved":
         raise HTTPException(status_code=409, detail="Mission must be approved before execution")
-    action_plan = plan_action(
-        mission.decision.recommended_action,
-        target=(mission.action or {}).get("target"),
-    )
-    action_plan.payload["approved"] = True
-    result = RUNTIME.orchestrator.action_executor.execute(action_plan)
-    if result.status != "completed":
-        raise HTTPException(status_code=409, detail=result.message or result.status)
-    execution_id = f"EXE-{uuid4().hex[:12].upper()}"
-    mission.action = {
-        **(mission.action or {}),
-        "status": "executed",
-        "output": result.output,
-        "result_message": result.message,
-        "executed_at": utc_now(),
-        "execution_id": execution_id,
-    }
-    mission.status = MissionStatus.EXECUTED
-    log_event(mission.audit, "act", "تم تنفيذ الإجراء عبر ActionExecutor المعتمد؛ لم يتم إرسال بريد خارجي.")
-    return _persist_mission(mission)
+    result = RUNTIME.orchestrator.execute(mission)
+    if result.stage != "executed":
+        raise HTTPException(status_code=409, detail=mission.action_result.message if mission.action_result else "Execution failed")
+    return _save(mission)
 
 
 @app.post("/api/missions/{mission_id}/verify", response_model=Mission)
 def verify_mission(mission_id: str, tenant_id: str = Depends(tenant_context)) -> Mission:
-    mission = get_mission(mission_id, tenant_id)
-    if mission.status == MissionStatus.VERIFIED:
-        return mission
-    if mission.status != MissionStatus.EXECUTED:
+    mission = _get_core(tenant_id, mission_id)
+    if mission is None:
+        raise HTTPException(status_code=404, detail="Mission not found")
+    if mission.stage == "verified":
+        return _to_api_mission(mission)
+    if mission.stage != "executed":
         raise HTTPException(status_code=409, detail="Mission must be executed before verification")
-    action = mission.action or {}
-    result = ActionResult(
-        action_type=str(action.get("type", "")),
-        status="completed",
-        output=dict(action.get("output") or {}),
-        message=str(action.get("result_message", "")),
-    )
-    verification = RUNTIME.orchestrator.verifier.verify(result)
-    mission.verification = {
-        "status": verification.status,
-        "checks": verification.checks,
-        "details": verification.details,
-        "verified_at": utc_now(),
-        "execution_id": action.get("execution_id"),
-    }
-    if verification.status != "verified":
+    result = RUNTIME.orchestrator.verify(mission)
+    if result.stage != "verified":
         raise HTTPException(status_code=409, detail="Execution could not be verified")
-    mission.status = MissionStatus.VERIFIED
-    log_event(mission.audit, "verify", "تم التحقق من نتيجة التنفيذ وإغلاق دورة المهمة.")
-    return _persist_mission(mission)
+    return _save(mission)
