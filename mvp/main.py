@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import re
 from datetime import datetime, timezone
 from enum import Enum
@@ -18,7 +17,7 @@ from core.mission_repository import SQLiteMissionRepository
 
 app = FastAPI(
     title="NEXUS MVP",
-    version="0.8.0",
+    version="0.9.0",
     description="Goal-driven AI intelligence: Observe → Understand → Research → Reason → Decide → Act → Verify",
 )
 
@@ -40,6 +39,13 @@ class SourceType(str, Enum):
     CRM = "crm"
     WEB = "web"
     UNKNOWN = "unknown"
+
+
+class ActorRole(str, Enum):
+    VIEWER = "viewer"
+    OPERATOR = "operator"
+    APPROVER = "approver"
+    ADMIN = "admin"
 
 
 class Signal(BaseModel):
@@ -118,6 +124,7 @@ SAMPLE_CONTEXT: dict[str, Any] = {
 }
 
 DEFAULT_TENANT = "demo-tenant"
+DEFAULT_ROLE = ActorRole.ADMIN
 TENANT_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$")
 INGESTED_DATA: dict[str, list[dict[str, Any]]] = {}
 RUNTIME: MissionRuntime = build_runtime()
@@ -133,6 +140,19 @@ def tenant_context(x_tenant_id: str | None = Header(default=None, alias="X-Tenan
     if not TENANT_PATTERN.fullmatch(tenant_id):
         raise HTTPException(status_code=400, detail="Invalid X-Tenant-ID")
     return tenant_id
+
+
+def role_context(x_actor_role: str | None = Header(default=None, alias="X-Actor-Role")) -> ActorRole:
+    value = (x_actor_role or DEFAULT_ROLE.value).strip().lower()
+    try:
+        return ActorRole(value)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid X-Actor-Role") from exc
+
+
+def require_role(role: ActorRole, allowed: set[ActorRole]) -> None:
+    if role not in allowed:
+        raise HTTPException(status_code=403, detail=f"Role '{role.value}' is not authorized for this operation")
 
 
 def sample_signals() -> list[Signal]:
@@ -164,16 +184,7 @@ def signals_from_ingestion(tenant_id: str) -> list[Signal]:
 def _context_from_signals(signals: list[Signal]) -> BusinessContext:
     context = BusinessContext()
     for signal in signals:
-        context.add_evidence(
-            Evidence(
-                id=signal.id,
-                source=signal.source.value,
-                claim=signal.title,
-                value=signal.value,
-                confidence=signal.confidence,
-                metadata={"impact": signal.impact, "kind": "signal"},
-            )
-        )
+        context.add_evidence(Evidence(id=signal.id, source=signal.source.value, claim=signal.title, value=signal.value, confidence=signal.confidence, metadata={"impact": signal.impact, "kind": "signal"}))
     return context
 
 
@@ -189,43 +200,16 @@ def _signals_from_core(mission: MissionState) -> list[Signal]:
         raw_source = str(evidence.source or "unknown").lower()
         source = SourceType(raw_source) if raw_source in valid_sources else SourceType.UNKNOWN
         metadata = evidence.metadata or {}
-        result.append(
-            Signal(
-                id=evidence.id,
-                source=source,
-                title=str(evidence.claim),
-                value=str(evidence.value),
-                impact=str(metadata.get("impact", "")),
-                confidence=int(evidence.confidence),
-            )
-        )
+        result.append(Signal(id=evidence.id, source=source, title=str(evidence.claim), value=str(evidence.value), impact=str(metadata.get("impact", "")), confidence=int(evidence.confidence)))
     return result
 
 
 def _status_for_stage(stage: str) -> MissionStatus:
-    return {
-        "understand": MissionStatus.ANALYZING,
-        "researching": MissionStatus.ANALYZING,
-        "researched": MissionStatus.ANALYZING,
-        "reason": MissionStatus.ANALYZING,
-        "decide": MissionStatus.AWAITING_APPROVAL,
-        "action_planned": MissionStatus.AWAITING_APPROVAL,
-        "approved": MissionStatus.APPROVED,
-        "executed": MissionStatus.EXECUTED,
-        "verified": MissionStatus.VERIFIED,
-    }.get(stage, MissionStatus.ANALYZING)
+    return {"understand": MissionStatus.ANALYZING, "researching": MissionStatus.ANALYZING, "researched": MissionStatus.ANALYZING, "reason": MissionStatus.ANALYZING, "decide": MissionStatus.AWAITING_APPROVAL, "action_planned": MissionStatus.AWAITING_APPROVAL, "approved": MissionStatus.APPROVED, "executed": MissionStatus.EXECUTED, "verified": MissionStatus.VERIFIED}.get(stage, MissionStatus.ANALYZING)
 
 
 def _decision_from_core(mission: MissionState) -> Decision:
-    return Decision(**(mission.decision or {
-        "title": "قرار قيد التحليل",
-        "summary": "لم يتم إنتاج قرار بعد.",
-        "priority": "medium",
-        "confidence": 0,
-        "rationale": [],
-        "recommended_action": "",
-        "expected_impact": "",
-    }))
+    return Decision(**(mission.decision or {"title": "قرار قيد التحليل", "summary": "لم يتم إنتاج قرار بعد.", "priority": "medium", "confidence": 0, "rationale": [], "recommended_action": "", "expected_impact": ""}))
 
 
 def _audit_timestamp(mission: MissionState, stage: str) -> str | None:
@@ -266,30 +250,8 @@ def _to_api_mission(mission: MissionState) -> Mission:
         }
     audit = [AuditEvent(timestamp=str(item.get("timestamp", "")), stage=str(item.get("stage", "")), message=str(item.get("message", ""))) for item in mission.audit]
     valid_sources = {item.value for item in SourceType}
-    sources = {
-        SourceType(str(ev.source)) if str(ev.source) in valid_sources else SourceType.UNKNOWN
-        for ev in mission.context.evidence.values()
-    }
-    return Mission(
-        id=mission.id,
-        tenant_id=mission.tenant_id,
-        created_at=audit[0].timestamp if audit else utc_now(),
-        status=_status_for_stage(mission.stage),
-        goal=mission.goal,
-        constraints=mission.constraints,
-        sources_used=sorted(sources, key=lambda value: value.value),
-        signals=_signals_from_core(mission),
-        research=ResearchSummary(
-            domains=mission.goal_plan.domains() if mission.goal_plan else [],
-            completed=completed,
-            unavailable=unavailable,
-            evidence_added=evidence_added,
-        ),
-        decision=decision,
-        action=action,
-        verification=verification,
-        audit=audit,
-    )
+    sources = {SourceType(str(ev.source)) if str(ev.source) in valid_sources else SourceType.UNKNOWN for ev in mission.context.evidence.values()}
+    return Mission(id=mission.id, tenant_id=mission.tenant_id, created_at=audit[0].timestamp if audit else utc_now(), status=_status_for_stage(mission.stage), goal=mission.goal, constraints=mission.constraints, sources_used=sorted(sources, key=lambda value: value.value), signals=_signals_from_core(mission), research=ResearchSummary(domains=mission.goal_plan.domains() if mission.goal_plan else [], completed=completed, unavailable=unavailable, evidence_added=evidence_added), decision=decision, action=action, verification=verification, audit=audit)
 
 
 def _save(mission: MissionState) -> Mission:
@@ -303,7 +265,7 @@ def _get_core(tenant_id: str, mission_id: str) -> MissionState | None:
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "service": "nexus-mvp", "version": "0.8.0"}
+    return {"status": "ok", "service": "nexus-mvp", "version": "0.9.0"}
 
 
 @app.get("/api/runtime")
@@ -312,17 +274,14 @@ def runtime_info() -> dict[str, Any]:
 
 
 @app.get("/api/context")
-def context(tenant_id: str = Depends(tenant_context)) -> dict[str, Any]:
-    return {
-        **SAMPLE_CONTEXT,
-        "tenant_id": tenant_id,
-        "ingested_records": len(INGESTED_DATA.get(tenant_id, [])),
-        "persisted_missions": len(MISSION_REPOSITORY.list_by_tenant(tenant_id)),
-    }
+def context(tenant_id: str = Depends(tenant_context), role: ActorRole = Depends(role_context)) -> dict[str, Any]:
+    require_role(role, {ActorRole.VIEWER, ActorRole.OPERATOR, ActorRole.APPROVER, ActorRole.ADMIN})
+    return {**SAMPLE_CONTEXT, "tenant_id": tenant_id, "ingested_records": len(INGESTED_DATA.get(tenant_id, [])), "persisted_missions": len(MISSION_REPOSITORY.list_by_tenant(tenant_id))}
 
 
 @app.post("/api/ingest/file")
-def ingest_file(request: IngestRequest, tenant_id: str = Depends(tenant_context)) -> dict[str, Any]:
+def ingest_file(request: IngestRequest, tenant_id: str = Depends(tenant_context), role: ActorRole = Depends(role_context)) -> dict[str, Any]:
+    require_role(role, {ActorRole.OPERATOR, ActorRole.ADMIN})
     connector = RUNTIME.registry.connectors["file"]
     try:
         result = connector.ingest(request.content, filename=request.filename)
@@ -330,48 +289,36 @@ def ingest_file(request: IngestRequest, tenant_id: str = Depends(tenant_context)
     except (ValueError, TypeError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     INGESTED_DATA.setdefault(tenant_id, []).extend(normalized)
-    return {
-        "status": "ingested",
-        "tenant_id": tenant_id,
-        "source": result.source,
-        "metadata": {**result.metadata, "normalized": True},
-        "records_added": len(normalized),
-        "total_records": len(INGESTED_DATA[tenant_id]),
-    }
+    return {"status": "ingested", "tenant_id": tenant_id, "source": result.source, "metadata": {**result.metadata, "normalized": True}, "records_added": len(normalized), "total_records": len(INGESTED_DATA[tenant_id])}
 
 
 @app.get("/api/ingest")
-def list_ingested(tenant_id: str = Depends(tenant_context)) -> dict[str, Any]:
+def list_ingested(tenant_id: str = Depends(tenant_context), role: ActorRole = Depends(role_context)) -> dict[str, Any]:
+    require_role(role, {ActorRole.VIEWER, ActorRole.OPERATOR, ActorRole.APPROVER, ActorRole.ADMIN})
     records = INGESTED_DATA.get(tenant_id, [])
     return {"tenant_id": tenant_id, "count": len(records), "records": records}
 
 
 @app.post("/api/missions", response_model=Mission, status_code=201)
-def create_mission(request: MissionRequest, tenant_id: str = Depends(tenant_context)) -> Mission:
+def create_mission(request: MissionRequest, tenant_id: str = Depends(tenant_context), role: ActorRole = Depends(role_context)) -> Mission:
+    require_role(role, {ActorRole.OPERATOR, ActorRole.ADMIN})
     signals = sample_signals() + signals_from_ingestion(tenant_id)
-    records = [
-        {"supplier": signal.title, "monthly_spend": signal.value, "impact": signal.impact, "source": signal.source.value}
-        for signal in signals
-    ]
-    mission = RUNTIME.orchestrator.create(
-        tenant_id=tenant_id,
-        goal=request.goal,
-        constraints=request.constraints,
-        records=records,
-        source="api-signals",
-    )
+    records = [{"supplier": signal.title, "monthly_spend": signal.value, "impact": signal.impact, "source": signal.source.value} for signal in signals]
+    mission = RUNTIME.orchestrator.create(tenant_id=tenant_id, goal=request.goal, constraints=request.constraints, records=records, source="api-signals")
     RUNTIME.orchestrator.research(mission)
     RUNTIME.orchestrator.decide(mission)
     return _save(mission)
 
 
 @app.get("/api/missions", response_model=list[Mission])
-def list_missions(tenant_id: str = Depends(tenant_context)) -> list[Mission]:
+def list_missions(tenant_id: str = Depends(tenant_context), role: ActorRole = Depends(role_context)) -> list[Mission]:
+    require_role(role, {ActorRole.VIEWER, ActorRole.OPERATOR, ActorRole.APPROVER, ActorRole.ADMIN})
     return [_to_api_mission(mission) for mission in MISSION_REPOSITORY.list_by_tenant(tenant_id)]
 
 
 @app.get("/api/missions/{mission_id}", response_model=Mission)
-def get_mission(mission_id: str, tenant_id: str = Depends(tenant_context)) -> Mission:
+def get_mission(mission_id: str, tenant_id: str = Depends(tenant_context), role: ActorRole = Depends(role_context)) -> Mission:
+    require_role(role, {ActorRole.VIEWER, ActorRole.OPERATOR, ActorRole.APPROVER, ActorRole.ADMIN})
     mission = _get_core(tenant_id, mission_id)
     if mission is None:
         raise HTTPException(status_code=404, detail="Mission not found")
@@ -379,7 +326,8 @@ def get_mission(mission_id: str, tenant_id: str = Depends(tenant_context)) -> Mi
 
 
 @app.post("/api/missions/{mission_id}/approve", response_model=Mission)
-def approve_mission(mission_id: str, tenant_id: str = Depends(tenant_context)) -> Mission:
+def approve_mission(mission_id: str, tenant_id: str = Depends(tenant_context), role: ActorRole = Depends(role_context)) -> Mission:
+    require_role(role, {ActorRole.APPROVER, ActorRole.ADMIN})
     mission = _get_core(tenant_id, mission_id)
     if mission is None:
         raise HTTPException(status_code=404, detail="Mission not found")
@@ -397,7 +345,8 @@ def approve_mission(mission_id: str, tenant_id: str = Depends(tenant_context)) -
 
 
 @app.post("/api/missions/{mission_id}/execute", response_model=Mission)
-def execute_mission(mission_id: str, tenant_id: str = Depends(tenant_context)) -> Mission:
+def execute_mission(mission_id: str, tenant_id: str = Depends(tenant_context), role: ActorRole = Depends(role_context)) -> Mission:
+    require_role(role, {ActorRole.OPERATOR, ActorRole.ADMIN})
     mission = _get_core(tenant_id, mission_id)
     if mission is None:
         raise HTTPException(status_code=404, detail="Mission not found")
@@ -412,7 +361,8 @@ def execute_mission(mission_id: str, tenant_id: str = Depends(tenant_context)) -
 
 
 @app.post("/api/missions/{mission_id}/verify", response_model=Mission)
-def verify_mission(mission_id: str, tenant_id: str = Depends(tenant_context)) -> Mission:
+def verify_mission(mission_id: str, tenant_id: str = Depends(tenant_context), role: ActorRole = Depends(role_context)) -> Mission:
+    require_role(role, {ActorRole.OPERATOR, ActorRole.ADMIN})
     mission = _get_core(tenant_id, mission_id)
     if mission is None:
         raise HTTPException(status_code=404, detail="Mission not found")
