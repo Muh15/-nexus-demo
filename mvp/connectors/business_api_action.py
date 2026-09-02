@@ -1,0 +1,80 @@
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+from dataclasses import dataclass
+from urllib.parse import urljoin, urlparse
+
+import httpx
+
+
+@dataclass(frozen=True, slots=True)
+class BusinessActionConfig:
+    name: str
+    base_url: str
+    allowed_hosts: frozenset[str]
+    token_env: str | None = None
+    timeout_seconds: float = 10
+    max_response_bytes: int = 2_000_000
+    max_retries: int = 2
+
+
+class BusinessActionConnector:
+    """Scoped write transport for explicitly configured business APIs."""
+
+    def __init__(self, config: BusinessActionConfig) -> None:
+        self.config = config
+        parsed = urlparse(config.base_url)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            raise ValueError("base_url must be an http(s) URL")
+        if parsed.hostname not in config.allowed_hosts:
+            raise ValueError(f"base_url host is not allow-listed: {parsed.hostname}")
+
+    def _url(self, endpoint: str) -> str:
+        url = urljoin(self.config.base_url.rstrip("/") + "/", endpoint.lstrip("/"))
+        parsed = urlparse(url)
+        if parsed.hostname not in self.config.allowed_hosts:
+            raise ValueError(f"action host is not allow-listed: {parsed.hostname}")
+        return url
+
+    def execute(self, method: str, endpoint: str, payload: dict, execution_id: str) -> dict:
+        method = method.upper()
+        if method not in {"POST", "PATCH"}:
+            raise ValueError("only POST and PATCH actions are supported")
+        url = self._url(endpoint)
+        headers = {"Accept": "application/json", "Content-Type": "application/json", "Idempotency-Key": execution_id}
+        if self.config.token_env:
+            token = os.getenv(self.config.token_env)
+            if token:
+                headers["Authorization"] = f"Bearer {token}"
+        last_error: Exception | None = None
+        for attempt in range(self.config.max_retries + 1):
+            try:
+                with httpx.Client(timeout=self.config.timeout_seconds, follow_redirects=False) as client:
+                    response = client.request(method, url, headers=headers, json=payload)
+                if response.status_code in {408, 429} or 500 <= response.status_code < 600:
+                    if attempt < self.config.max_retries:
+                        continue
+                raw = response.content
+                if len(raw) > self.config.max_response_bytes:
+                    raise ValueError("response exceeds configured maximum size")
+                try:
+                    body = response.json() if raw else {}
+                except json.JSONDecodeError as exc:
+                    raise ValueError("business API returned invalid JSON") from exc
+                return {
+                    "status_code": response.status_code,
+                    "ok": response.is_success,
+                    "body": body,
+                    "sha256": hashlib.sha256(raw).hexdigest(),
+                    "url": url,
+                    "method": method,
+                    "credential_env": self.config.token_env,
+                    "attempts": attempt + 1,
+                }
+            except (httpx.HTTPError, OSError) as exc:
+                last_error = exc
+                if attempt >= self.config.max_retries:
+                    raise
+        raise last_error or RuntimeError("business action failed")
