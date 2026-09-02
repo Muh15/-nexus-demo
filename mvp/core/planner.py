@@ -8,21 +8,28 @@ from .policy import ActionPolicy, evaluate_action
 
 @dataclass(frozen=True, slots=True)
 class ActionPlan:
+    """Explicit proposed action plus its policy decision."""
+
     action_type: str
     description: str
     policy: ActionPolicy
     payload: dict[str, Any]
 
 
-def plan_action(recommended_action: str, *, target: str | None = None) -> ActionPlan:
-    """Translate a decision into a safe, explicit action plan.
+def plan_action(
+    recommended_action: str,
+    *,
+    target: str | None = None,
+    action_type: str = "draft_email",
+    amount: float | None = None,
+) -> ActionPlan:
+    """Translate a decision into a policy-checked, explicit action plan.
 
-    This layer separates *what NEXUS recommends* from *what it is allowed to
-    execute*. That distinction becomes critical as connectors gain write
-    access to real customer systems.
+    The planner never executes anything. It only describes a possible action
+    and asks the policy boundary whether that action is permitted in the
+    current environment.
     """
-    action_type = "draft_email"
-    policy = evaluate_action(action_type)
+    policy = evaluate_action(action_type, amount=amount)
     return ActionPlan(
         action_type=action_type,
         description=recommended_action,
@@ -31,5 +38,6 @@ def plan_action(recommended_action: str, *, target: str | None = None) -> Action
             "target": target,
             "approval_required": policy.requires_approval,
             "execution_allowed": policy.allowed,
+            "risk": policy.risk.value,
         },
     )
