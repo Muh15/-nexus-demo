@@ -10,6 +10,7 @@ from .orchestrator import MissionOrchestrator, MissionState
 from .repository import InMemoryMissionRepository
 from .research_executor import ResearchExecutor, ResearchResult, context_provider
 from .research_planner import ResearchPlan, ResearchTask, build_research_plan
+from .sqlite_store import SQLiteMissionStore
 from .verifier import ActionVerifier, VerificationResult, draft_email_verifier
 
 __all__ = [
@@ -20,5 +21,6 @@ __all__ = [
     "ResearchExecutor", "ResearchResult", "context_provider",
     "ActionExecutor", "ActionResult", "draft_email_handler",
     "ActionVerifier", "VerificationResult", "draft_email_verifier",
+    "SQLiteMissionStore",
     "MissionOrchestrator", "MissionState", "InMemoryMissionRepository",
 ]
