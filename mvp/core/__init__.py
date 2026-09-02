@@ -4,6 +4,7 @@ from .action_executor import ActionExecutor, ActionResult, draft_email_handler
 from .auth import ActorRole, AuthenticationError, Principal, authenticate_api_key, configured_principals
 from .goal_planner import Goal, GoalPlan, GoalProfile, ResearchNeed, build_goal_plan, classify_goal, parse_goal
 from .impact import ImpactAssessment, assess_change
+from .ingestion_scheduler import IngestionJob, SQLiteIngestionScheduler
 from .intelligence_graph import GraphEdge, GraphNode, IntelligenceGraph
 from .mission_intelligence import MissionIntelligence
 from .mission_repository import SQLiteMissionRepository
@@ -24,7 +25,7 @@ __all__ = [
     "ResearchExecutor", "ResearchResult", "context_provider",
     "ActionExecutor", "ActionResult", "draft_email_handler",
     "ActionVerifier", "VerificationResult", "draft_email_verifier",
-    "SQLiteMissionStore", "SQLiteMissionRepository",
+    "SQLiteMissionStore", "SQLiteMissionRepository", "IngestionJob", "SQLiteIngestionScheduler",
     "MissionOrchestrator", "MissionState", "mission_from_snapshot", "InMemoryMissionRepository",
     "MissionRuntime", "build_runtime", "build_mission_orchestrator",
     "ActorRole", "Principal", "AuthenticationError", "authenticate_api_key", "configured_principals",
