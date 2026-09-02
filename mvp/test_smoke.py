@@ -12,6 +12,7 @@ from core.models import BusinessContext, Entity, Evidence, Relationship
 from core.orchestrator import MissionOrchestrator
 from core.planner import plan_action
 from core.policy import ActionRisk, evaluate_action
+from core.research_planner import build_research_plan
 from main import reason, sample_signals
 
 
@@ -199,6 +200,17 @@ def test_mission_intelligence_combines_memory_and_goal_plan():
     assert len(first_assessments) == len(second_assessments)
 
 
+def test_adaptive_research_planner_finds_missing_domains():
+    goal_plan = build_goal_plan(parse_goal("Reduce operating cost by 10% within 90 days"))
+    context = build_context([{"supplier": "ABC", "monthly_spend": 420000}], source="erp")
+    research = build_research_plan(goal_plan, context)
+
+    assert research.tasks
+    assert any(task.domain == "contracts" for task in research.tasks)
+    assert all(task.connector for task in research.tasks)
+    assert research.tasks == sorted(research.tasks, key=lambda item: (-item.priority, item.domain))
+
+
 def test_orchestrator_keeps_intelligence_as_replaceable_component():
     def fake_reasoner(goal, constraints, context):
         return {
@@ -222,4 +234,4 @@ def test_orchestrator_keeps_intelligence_as_replaceable_component():
     assert mission.goal_plan is not None
     assert mission.intelligence_graph is not None
     assert mission.impact_assessments
-    assert mission.action_plan is not None
+    assert mission.research_plan is not None
