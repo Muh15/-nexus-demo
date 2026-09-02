@@ -11,7 +11,7 @@ from .mission_repository import SQLiteMissionRepository
 from .orchestrator import MissionOrchestrator
 from .reasoner import reason_from_evidence
 from .registry import ComponentRegistry
-from .research_executor import ResearchExecutor, context_provider
+from .research_executor import ResearchExecutor, context_provider, http_json_provider
 from .sqlite_store import SQLiteMissionStore
 from .verifier import ActionVerifier, draft_email_verifier
 
@@ -58,6 +58,24 @@ def build_runtime() -> MissionRuntime:
         "web": "web_connector",
     }.items():
         research.register(connector, context_provider(connector, source, confidence=82))
+
+    # When an allow-listed HTTP JSON endpoint is explicitly configured, use it
+    # as the real transport for web research. Without the URL, the deterministic
+    # local provider remains active so tests and demos stay offline and stable.
+    http_research_url = os.getenv("NEXUS_HTTP_RESEARCH_URL", "").strip()
+    http_connector = registry.connectors.get("http_json")
+    if http_research_url and isinstance(http_connector, HttpJsonConnector):
+        research.register(
+            "http_json",
+            http_json_provider(http_connector, http_research_url, confidence=88),
+        )
+        research.register(
+            "web_http",
+            http_json_provider(http_connector, http_research_url, confidence=88),
+        )
+        # Keep the planner contract stable: the web domain still asks for
+        # connector="web", but its provider can now be backed by real HTTP.
+        research._providers["web"] = http_json_provider(http_connector, http_research_url, confidence=88)
 
     actions = ActionExecutor({"draft_email": draft_email_handler})
     verifier = ActionVerifier({"draft_email": draft_email_verifier})
