@@ -11,7 +11,7 @@ from .mission_repository import SQLiteMissionRepository
 from .models import BusinessContext, Entity, Evidence, Relationship
 from .orchestrator import MissionOrchestrator, MissionState, mission_from_snapshot
 from .repository import InMemoryMissionRepository
-from .research_executor import ResearchExecutor, ResearchResult, context_provider
+from .research_executor import ResearchExecutor, ResearchResult, business_api_provider, context_provider
 from .research_planner import ResearchPlan, ResearchTask, build_research_plan
 from .runtime import MissionRuntime, build_mission_orchestrator, build_runtime
 from .sqlite_store import SQLiteMissionStore
@@ -22,7 +22,7 @@ __all__ = [
     "Goal", "GoalProfile", "GoalPlan", "ResearchNeed", "classify_goal", "build_goal_plan", "parse_goal",
     "ImpactAssessment", "assess_change", "GraphEdge", "GraphNode", "IntelligenceGraph",
     "MissionIntelligence", "ResearchPlan", "ResearchTask", "build_research_plan",
-    "ResearchExecutor", "ResearchResult", "context_provider",
+    "ResearchExecutor", "ResearchResult", "context_provider", "business_api_provider",
     "ActionExecutor", "ActionResult", "draft_email_handler",
     "ActionVerifier", "VerificationResult", "draft_email_verifier",
     "SQLiteMissionStore", "SQLiteMissionRepository", "IngestionJob", "SQLiteIngestionScheduler",
