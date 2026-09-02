@@ -7,10 +7,12 @@ from connectors.file_connector import FileConnector
 from connectors.http_json_connector import HttpJsonConfig, HttpJsonConnector
 
 from .action_executor import ActionExecutor, draft_email_handler
+from .mission_repository import SQLiteMissionRepository
 from .orchestrator import MissionOrchestrator
 from .reasoner import reason_from_evidence
 from .registry import ComponentRegistry
 from .research_executor import ResearchExecutor, context_provider
+from .sqlite_store import SQLiteMissionStore
 from .verifier import ActionVerifier, draft_email_verifier
 
 
@@ -22,17 +24,13 @@ class MissionRuntime:
     action_executor: ActionExecutor
     verifier: ActionVerifier
     registry: ComponentRegistry
+    mission_repository: SQLiteMissionRepository
 
 
 def _build_connector_registry() -> ComponentRegistry:
     registry = ComponentRegistry.empty()
     registry.add_connector("file", FileConnector())
-
-    allowed_hosts = frozenset(
-        host.strip()
-        for host in os.getenv("NEXUS_HTTP_ALLOWED_HOSTS", "").split(",")
-        if host.strip()
-    )
+    allowed_hosts = frozenset(host.strip() for host in os.getenv("NEXUS_HTTP_ALLOWED_HOSTS", "").split(",") if host.strip())
     if allowed_hosts:
         registry.add_connector(
             "http_json",
@@ -71,11 +69,14 @@ def build_runtime() -> MissionRuntime:
         action_executor=actions,
         verifier=verifier,
     )
+    repository_path = os.getenv("NEXUS_DB_PATH", "nexus_mvp.sqlite3")
+    repository = SQLiteMissionRepository(SQLiteMissionStore(repository_path))
     return MissionRuntime(
         orchestrator=orchestrator,
         action_executor=actions,
         verifier=verifier,
         registry=registry,
+        mission_repository=repository,
     )
 
 
