@@ -16,6 +16,7 @@ from core.policy import ActionRisk, evaluate_action
 from core.reasoner import reason_from_evidence
 from core.research_executor import ResearchExecutor, context_provider
 from core.research_planner import build_research_plan
+from core.sqlite_store import SQLiteMissionStore
 from core.verifier import ActionVerifier, draft_email_verifier
 from main import reason, sample_signals
 
@@ -227,3 +228,20 @@ def test_orchestrator_runs_full_safe_mission_lifecycle():
     assert mission.action_result is not None and mission.action_result.status == "completed"
     assert mission.verification is not None and mission.verification.status == "verified"
     assert {event["stage"] for event in mission.audit} >= {"observe", "understand", "researching", "researched", "reason", "decide", "action_planned", "approved", "executed", "verified"}
+
+
+def test_sqlite_mission_store_persists_and_reloads_payload(tmp_path):
+    store = SQLiteMissionStore(tmp_path / "nexus.sqlite3")
+    payload = {
+        "id": "NXS-123",
+        "stage": "verified",
+        "goal": "Reduce operating cost by 10%",
+        "audit": [{"stage": "verified", "message": "done"}],
+    }
+    store.save("NXS-123", payload, "2026-09-02T12:00:00+00:00")
+
+    reloaded = SQLiteMissionStore(tmp_path / "nexus.sqlite3")
+    assert reloaded.get("NXS-123") == payload
+    assert reloaded.list_ids() == ["NXS-123"]
+    assert reloaded.delete("NXS-123") is True
+    assert reloaded.get("NXS-123") is None
