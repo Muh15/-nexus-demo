@@ -11,14 +11,12 @@ from pydantic import BaseModel, Field
 
 from connectors.file_connector import FileConnector
 from connectors.normalize import normalize_records
-from core.action_executor import ActionExecutor, ActionResult, draft_email_handler
+from core.action_executor import ActionResult
 from core.models import BusinessContext, Evidence
-from core.orchestrator import MissionOrchestrator
 from core.planner import plan_action
 from core.reasoner import reason_from_evidence
-from core.research_executor import ResearchExecutor, context_provider
+from core.runtime import MissionRuntime, build_runtime
 from core.sqlite_store import SQLiteMissionStore
-from core.verifier import ActionVerifier, draft_email_verifier
 
 app = FastAPI(
     title="NEXUS MVP",
@@ -122,8 +120,7 @@ INGESTED_DATA: list[dict[str, Any]] = []
 MISSION_DB_PATH = os.getenv("NEXUS_DB_PATH", "nexus_mvp.sqlite3")
 MISSION_STORE = SQLiteMissionStore(MISSION_DB_PATH)
 MISSIONS: dict[str, Mission] = {}
-ACTION_EXECUTOR = ActionExecutor({"draft_email": draft_email_handler})
-ACTION_VERIFIER = ActionVerifier({"draft_email": draft_email_verifier})
+RUNTIME: MissionRuntime = build_runtime()
 
 
 def utc_now() -> str:
@@ -181,42 +178,20 @@ def reason(goal: str, constraints: list[str], signals: list[Signal]) -> Decision
     return Decision(**decision.as_dict())
 
 
-def _research_executor() -> ResearchExecutor:
-    executor = ResearchExecutor()
-    sources = {
-        "file": "file",
-        "supplier": "supplier_connector",
-        "erp": "erp_connector",
-        "contract": "contract_connector",
-        "market": "market_connector",
-        "crm": "crm_connector",
-        "web": "web_connector",
-    }
-    for connector, source in sources.items():
-        executor.register(connector, context_provider(connector, source, confidence=82))
-    return executor
-
-
 def _run_mission(goal: str, constraints: list[str], signals: list[Signal]):
     records = [
         {"supplier": signal.title, "monthly_spend": signal.value, "impact": signal.impact, "source": signal.source.value}
         for signal in signals
     ]
-    orchestrator = MissionOrchestrator(
-        lambda mission_goal, mission_constraints, context: reason_from_evidence(
-            mission_goal, mission_constraints, context
-        ).as_dict(),
-        research_executor=_research_executor(),
-    )
-    mission = orchestrator.create(
+    mission = RUNTIME.orchestrator.create(
         tenant_id="demo-tenant",
         goal=goal,
         constraints=constraints,
         records=records,
         source="api-signals",
     )
-    orchestrator.research(mission)
-    orchestrator.decide(mission)
+    RUNTIME.orchestrator.research(mission)
+    RUNTIME.orchestrator.decide(mission)
     return mission
 
 
@@ -338,18 +313,19 @@ def approve_mission(mission_id: str) -> Mission:
         return mission
     if mission.status != MissionStatus.AWAITING_APPROVAL:
         raise HTTPException(status_code=409, detail="Mission is not awaiting approval")
-    action_plan = plan_action(mission.decision.recommended_action, target="ABC Industrial")
-    if not action_plan.policy.allowed:
-        raise HTTPException(status_code=403, detail=action_plan.policy.reason)
-    action_plan.payload["approved"] = True
+    action_plan = RUNTIME.orchestrator._action_executor
+    proposed = plan_action(mission.decision.recommended_action, target="ABC Industrial")
+    if not proposed.policy.allowed:
+        raise HTTPException(status_code=403, detail=proposed.policy.reason)
+    proposed.payload["approved"] = True
     mission.status = MissionStatus.APPROVED
     mission.action = {
-        "type": action_plan.action_type,
+        "type": proposed.action_type,
         "status": "approved",
-        "target": action_plan.payload.get("target"),
-        "description": action_plan.description,
-        "risk": action_plan.policy.risk.value,
-        "approval_required": action_plan.policy.requires_approval,
+        "target": proposed.payload.get("target"),
+        "description": proposed.description,
+        "risk": proposed.policy.risk.value,
+        "approval_required": proposed.policy.requires_approval,
         "approved_at": utc_now(),
     }
     log_event(mission.audit, "approve", "تم اعتماد خطة الإجراء بعد فحص سياسة NEXUS.")
@@ -368,7 +344,7 @@ def execute_mission(mission_id: str) -> Mission:
         target=(mission.action or {}).get("target"),
     )
     action_plan.payload["approved"] = True
-    result = ACTION_EXECUTOR.execute(action_plan)
+    result = RUNTIME.action_executor.execute(action_plan)
     if result.status != "completed":
         raise HTTPException(status_code=409, detail=result.message or result.status)
     execution_id = f"EXE-{uuid4().hex[:12].upper()}"
@@ -399,7 +375,7 @@ def verify_mission(mission_id: str) -> Mission:
         output=dict(action.get("output") or {}),
         message=str(action.get("result_message", "")),
     )
-    verification = ACTION_VERIFIER.verify(result)
+    verification = RUNTIME.verifier.verify(result)
     mission.verification = {
         "status": verification.status,
         "checks": verification.checks,
