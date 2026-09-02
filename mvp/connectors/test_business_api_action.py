@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import httpx
 import pytest
 
@@ -28,7 +30,7 @@ def test_action_sends_idempotency_and_auth(monkeypatch):
     assert result["ok"] is True
     assert captured["headers"]["Idempotency-Key"] == "EXE-123"
     assert captured["headers"]["Authorization"] == "Bearer secret"
-    assert captured["json"] if "json" in captured else captured["content"]
+    assert json.loads(captured["content"]) == {"status": "review"}
 
 
 def test_action_rejects_unscoped_host():
