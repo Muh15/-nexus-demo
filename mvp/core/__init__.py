@@ -1,5 +1,9 @@
-"""Core domain primitives for the NEXUS intelligence engine."""
+"""Stable public exports for the NEXUS core domain."""
 
+from .goal_planner import Goal, GoalPlan, ResearchNeed, build_goal_plan, parse_goal
+from .impact import ImpactAssessment, assess_change
+from .intelligence_graph import GraphEdge, GraphNode, IntelligenceGraph
+from .mission_intelligence import MissionIntelligence
 from .models import BusinessContext, Entity, Evidence, Relationship
 from .orchestrator import MissionOrchestrator, MissionState
 from .repository import InMemoryMissionRepository
@@ -9,6 +13,17 @@ __all__ = [
     "Entity",
     "Evidence",
     "Relationship",
+    "Goal",
+    "GoalPlan",
+    "ResearchNeed",
+    "build_goal_plan",
+    "parse_goal",
+    "ImpactAssessment",
+    "assess_change",
+    "GraphEdge",
+    "GraphNode",
+    "IntelligenceGraph",
+    "MissionIntelligence",
     "MissionOrchestrator",
     "MissionState",
     "InMemoryMissionRepository",
