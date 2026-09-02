@@ -4,8 +4,12 @@ from connectors.file_connector import FileConnector
 from core.change_detector import detect_change, detect_record_changes
 from core.context_builder import build_context
 from core.goal_planner import build_goal_plan, parse_goal
+from core.impact import assess_change
+from core.intelligence_graph import IntelligenceGraph
 from core.memory import MemoryStore
+from core.mission_intelligence import MissionIntelligence
 from core.models import BusinessContext, Entity, Evidence, Relationship
+from core.orchestrator import MissionOrchestrator
 from core.planner import plan_action
 from core.policy import ActionRisk, evaluate_action
 from main import reason, sample_signals
@@ -143,3 +147,79 @@ def test_goal_planner_has_safe_fallback_for_ambiguous_goal():
     goal = parse_goal("تحسين تجربة العملاء")
     plan = build_goal_plan(goal)
     assert plan.domains() == ["business_context"]
+
+
+def test_intelligence_graph_projects_context_without_owning_source_data():
+    context = BusinessContext()
+    context.add_entity(Entity("supplier:abc", "supplier", "ABC Industrial"))
+    context.add_entity(Entity("contract:abc", "contract", "ABC-2026"))
+    context.add_evidence(Evidence("ev-1", "contract", "renewal_window", 43, confidence=94))
+    context.link(Relationship("supplier:abc", "governed_by", "contract:abc", 98, ["ev-1"]))
+
+    graph = IntelligenceGraph.from_context(context)
+    neighbors = graph.neighbors("supplier:abc", relation="governed_by")
+    evidence = graph.supporting_evidence("supplier:abc", context.evidence.values())
+
+    assert neighbors[0].id == "contract:abc"
+    assert evidence[0].id == "ev-1"
+    assert graph.snapshot()["edges"][0]["evidence_ids"] == ["ev-1"]
+
+
+def test_impact_assessment_prioritizes_goal_relevant_updates():
+    memory = MemoryStore()
+    change = detect_change(memory, "tenant-a", "supplier:abc:monthly_spend", 420000, source="erp")
+    goal = parse_goal("Reduce operating cost by 10% within 90 days")
+    plan = build_goal_plan(goal)
+    assessment = assess_change(change, goal, plan.research_needs)
+
+    assert assessment.relevant is True
+    assert assessment.score >= 55
+
+
+def test_mission_intelligence_combines_memory_and_goal_plan():
+    intelligence = MissionIntelligence()
+    rows = [{"supplier": "ABC", "monthly_spend": 420000, "status": "active"}]
+    first_plan, first_changes, first_assessments = intelligence.prepare(
+        tenant_id="tenant-a",
+        goal_text="Reduce operating cost by 10% within 90 days",
+        records=rows,
+        source="xlsx",
+    )
+    second_plan, second_changes, second_assessments = intelligence.prepare(
+        tenant_id="tenant-a",
+        goal_text="Reduce operating cost by 10% within 90 days",
+        records=rows,
+        source="xlsx",
+    )
+
+    assert "suppliers" in first_plan.domains()
+    assert any(item.kind == "new" for item in first_changes)
+    assert all(item.kind == "unchanged" for item in second_changes)
+    assert second_plan.goal.objective == first_plan.goal.objective
+    assert len(first_assessments) == len(second_assessments)
+
+
+def test_orchestrator_keeps_intelligence_as_replaceable_component():
+    def fake_reasoner(goal, constraints, context):
+        return {
+            "title": "قرار تجريبي",
+            "recommended_action": "إعداد مسودة متابعة",
+            "confidence": 90,
+        }
+
+    orchestrator = MissionOrchestrator(fake_reasoner)
+    mission = orchestrator.create(
+        tenant_id="tenant-a",
+        goal="Reduce operating cost by 10% within 90 days",
+        constraints=["Do not change quality"],
+        records=[{"supplier": "ABC", "contract": "ABC-2026", "monthly_spend": 420000}],
+        source="xlsx",
+    )
+    orchestrator.decide(mission)
+    orchestrator.plan(mission, target="ABC Industrial")
+
+    assert mission.stage == "action_planned"
+    assert mission.goal_plan is not None
+    assert mission.intelligence_graph is not None
+    assert mission.impact_assessments
+    assert mission.action_plan is not None
