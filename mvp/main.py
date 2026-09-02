@@ -176,6 +176,11 @@ def _context_from_signals(signals: list[Signal]) -> BusinessContext:
     return context
 
 
+def reason(goal: str, constraints: list[str], signals: list[Signal]) -> Decision:
+    decision = reason_from_evidence(goal, constraints, _context_from_signals(signals))
+    return Decision(**decision.as_dict())
+
+
 def _research_executor() -> ResearchExecutor:
     executor = ResearchExecutor()
     sources = {
