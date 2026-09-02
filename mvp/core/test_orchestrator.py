@@ -39,7 +39,7 @@ def test_orchestrator_lifecycle_is_explicit():
     assert mission.stage == "executed"
     orchestrator.verify_demo(mission)
     assert mission.stage == "verified"
-    assert mission.verification["status"] == "verified"
+    assert mission.verification.status == "verified"
     assert len(mission.audit) >= 6
 
 
