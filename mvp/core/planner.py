@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass
 from typing import Any
 
@@ -16,6 +18,17 @@ class ActionPlan:
     payload: dict[str, Any]
 
 
+def action_fingerprint(action_type: str, target: str | None, body: dict[str, Any]) -> str:
+    """Stable hash binding approval to the exact proposed business action."""
+    canonical = json.dumps(
+        {"action_type": action_type.strip().lower(), "target": target, "body": body},
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
 def plan_action(
     recommended_action: str,
     *,
@@ -24,22 +37,20 @@ def plan_action(
     amount: float | None = None,
     body: dict[str, Any] | None = None,
 ) -> ActionPlan:
-    """Translate a decision into a policy-checked, explicit action plan.
-
-    The planner never executes anything. It only describes a possible action
-    and asks the policy boundary whether that action is permitted in the
-    current environment.
-    """
+    """Translate a decision into a policy-checked, explicit action plan."""
+    normalized_body = dict(body or {})
     policy = evaluate_action(action_type, amount=amount)
+    fingerprint = action_fingerprint(action_type, target, normalized_body)
     return ActionPlan(
         action_type=action_type,
         description=recommended_action,
         policy=policy,
         payload={
             "target": target,
-            "body": dict(body or {}),
+            "body": normalized_body,
             "approval_required": policy.requires_approval,
             "execution_allowed": policy.allowed,
             "risk": policy.risk.value,
+            "action_fingerprint": fingerprint,
         },
     )
