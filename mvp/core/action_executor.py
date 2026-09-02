@@ -32,11 +32,7 @@ class ActionExecutor:
 
     def execute(self, plan: ActionPlan) -> ActionResult:
         if not plan.policy.allowed:
-            return ActionResult(
-                action_type=plan.action_type,
-                status="blocked",
-                message=plan.policy.reason,
-            )
+            return ActionResult(action_type=plan.action_type, status="blocked", message=plan.policy.reason)
         if plan.payload.get("approval_required") and not plan.payload.get("approved"):
             return ActionResult(
                 action_type=plan.action_type,
@@ -50,9 +46,11 @@ class ActionExecutor:
                 status="unavailable",
                 message="No execution handler is registered for this action type.",
             )
-        result = handler(plan)
-        if result.status == "completed" and result.execution_id is None:
-            return replace(result, execution_id=f"EXE-{uuid4().hex[:12].upper()}")
+        execution_id = plan.payload.get("execution_id") or f"EXE-{uuid4().hex[:12].upper()}"
+        executable_plan = replace(plan, payload={**plan.payload, "execution_id": execution_id})
+        result = handler(executable_plan)
+        if result.execution_id is None:
+            return replace(result, execution_id=execution_id)
         return result
 
 
