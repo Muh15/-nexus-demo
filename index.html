@@ -4,55 +4,155 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#061018">
+<meta name="description" content="NEXUS — من الإشارة إلى الإجراء">
 <title>NEXUS — من الإشارة إلى الإجراء</title>
 <style>
-:root{--bg:#061018;--panel:#0b1822;--line:#203744;--text:#f1f7fa;--muted:#91a8b6;--cyan:#48e0c5;--green:#68e6a5}
+:root{--bg:#061018;--panel:#0b1822;--panel2:#0a151e;--line:#203744;--line2:#294754;--text:#f3f8fa;--muted:#91a8b6;--cyan:#48e0c5;--cyan2:#7ae8d6;--green:#68e6a5;--red:#ff9ca7;--blue:#a8c5ff;--shadow:0 18px 55px rgba(0,0,0,.28)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;min-height:100%;background:radial-gradient(circle at 80% -8%,#143b4a 0,transparent 34%),var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-button,textarea{font:inherit}button{cursor:pointer;touch-action:manipulation;pointer-events:auto;position:relative;z-index:2}
-.wrap{width:min(900px,100%);margin:auto;padding:10px}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.brand{display:flex;align-items:center;gap:8px}.logo{width:37px;height:37px;border:1px solid #315064;border-radius:11px;display:grid;place-items:center;color:var(--cyan);background:#0d202a}.brand b{font-size:15px;letter-spacing:.18em}.brand span,.live{font-size:9px;color:var(--muted)}.live{display:flex;align-items:center;gap:6px}.live i{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 10px #68e6a5}
-.card{background:linear-gradient(180deg,#0d1b25f7,#09151df7);border:1px solid var(--line);border-radius:20px;box-shadow:0 18px 55px #0004}.hero{padding:17px}.eyebrow{display:inline-flex;color:var(--cyan);font-size:9px;font-weight:900;letter-spacing:.1em;border:1px solid #48e0c533;background:#48e0c50d;padding:6px 8px;border-radius:999px}.hero h1{font-size:clamp(29px,6vw,45px);line-height:1.05;margin:12px 0 8px}.hero h1 span{color:var(--cyan)}.hero p{margin:0;color:#abc0ca;font-size:12px;line-height:1.65}
-.mission{margin-top:14px;padding:10px;border:1px solid #284350;background:#07131c;border-radius:14px}.mission label{display:block;color:#78909e;font-size:8px;margin-bottom:6px}.row{display:flex;gap:8px}.mission textarea{flex:1;min-height:58px;resize:none;border:1px solid #274151;background:#0a1720;color:#fff;border-radius:11px;padding:10px;line-height:1.45;outline:0}.run{border:0;border-radius:11px;background:linear-gradient(135deg,#52e5ca,#39c6ae);color:#06211d;font-weight:900;padding:0 17px;min-width:125px}.run:active{transform:scale(.98)}.run.busy{opacity:.7}.quick{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}.quick button{border:1px solid #284252;background:#0a1720;color:#a8bdc8;border-radius:999px;padding:7px 10px;font-size:8px}
-.result{display:none;margin-top:11px;padding:14px}.result.show{display:block;animation:in .25s ease}.resultTop{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.kicker{font-size:9px;color:var(--cyan);font-weight:900}.result h2{font-size:clamp(21px,4.8vw,33px);margin:5px 0 2px;line-height:1.12}.product{font-size:15px;font-weight:900}.summary{margin:4px 0 0;color:#a9bec8;font-size:11px;line-height:1.6}.conf{min-width:82px;border:1px solid #2c655e;background:#0b2725;border-radius:12px;padding:7px;text-align:center}.conf b{display:block;color:#79ead4;font-size:20px}.conf span{font-size:8px;color:#83a1aa}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:11px 0}.metric{background:#08141d;border:1px solid #1e3440;border-radius:10px;padding:8px;text-align:center}.metric b{display:block;font-size:14px}.metric span{font-size:8px;color:var(--muted)}.recommend{border:1px solid #2b5f5a;border-radius:12px;background:#0b2325;padding:11px}.mini{font-size:8px;color:#7be4cf}.recommend strong{display:block;font-size:14px;margin:4px 0}.recommend p{margin:0;color:#9eb6c1;font-size:9px;line-height:1.5}.request{margin-top:8px;color:#66808e;font-size:8px}
-.section{margin-top:11px;overflow:hidden}.head{display:flex;justify-content:space-between;align-items:center;padding:11px 13px;border-bottom:1px solid #1d303c}.head strong{font-size:11px}.head span{font-size:8px;color:#78919f}.findings{padding:8px}.finding{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px;border:1px solid #203844;background:#091721;border-radius:11px;padding:9px;margin-bottom:6px}.finding:last-child{margin-bottom:0}.badge{font-size:7px;font-weight:900;padding:5px 6px;border-radius:999px}.opp{color:#7ce9d5;background:#10312e;border:1px solid #285d57}.risk{color:#ff9ca7;background:#311a20;border:1px solid #65333b}.info{color:#a5c4ff;background:#14233a;border:1px solid #2e4d77}.finding b{font-size:10px}.finding p{margin:2px 0 0;color:#7f99a7;font-size:7px;line-height:1.35}.arrow{color:#8fe9d8;font-size:12px}.reasonGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:0 8px 8px}.reason{border:1px solid #203843;background:#091620;border-radius:9px;padding:8px}.reason small{display:block;color:#668493;font-size:7px}.reason b{display:block;font-size:9px;margin-top:3px}.reason p{margin:2px 0 0;color:#839daa;font-size:7px;line-height:1.35}.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;padding:10px}.step{border:1px solid #1e3541;background:#091620;border-radius:9px;padding:8px}.step i{font-style:normal;color:var(--cyan);font-size:7px}.step b{display:block;font-size:9px;margin-top:3px}.step span{display:block;color:#7e97a5;font-size:7px;line-height:1.3;margin-top:2px}.audit{text-align:center;color:#5f7987;font:7px/1.4 ui-monospace,Menlo,monospace;padding:0 10px 10px}.toast{position:fixed;left:10px;bottom:10px;background:#0a1a23;border:1px solid #315265;color:#d4e4eb;border-radius:9px;padding:9px 11px;font-size:9px;opacity:0;transform:translateY(7px);transition:.2s;z-index:50}.toast.show{opacity:1;transform:none}
-@media(max-width:700px){.live,.brand span{display:none}.row{flex-direction:column}.run{height:46px}.resultTop{flex-direction:column}.conf{display:flex;align-items:center;gap:6px;min-width:0;padding:6px 8px}.conf b{font-size:17px}.metrics{gap:5px}.metric{padding:7px 4px}.reasonGrid{grid-template-columns:1fr 1fr}.steps{grid-template-columns:1fr 1fr}}
-@keyframes in{from{opacity:0;transform:translateY(6px)}}
+html{scroll-behavior:smooth}
+body{margin:0;min-height:100%;background:radial-gradient(circle at 82% -8%,#143b4a 0,transparent 31%),radial-gradient(circle at -8% 55%,#102532 0,transparent 26%),var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button,textarea{font:inherit}button{cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+button:focus-visible,textarea:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.wrap{width:min(980px,100%);margin:auto;padding:14px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}.brand{display:flex;align-items:center;gap:10px}.logo{width:40px;height:40px;border:1px solid #315064;border-radius:12px;display:grid;place-items:center;color:var(--cyan);background:#0d202a;box-shadow:0 0 0 4px #48e0c508}.brand b{font-size:15px;letter-spacing:.18em}.brand small{display:block;color:#6f8997;font-size:9px;margin-top:1px}.status{display:flex;align-items:center;gap:7px;color:#86a0ad;font-size:9px;border:1px solid #1e3642;background:#091620;padding:7px 9px;border-radius:999px}.status i{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 10px rgba(104,230,165,.75)}
+.card{background:linear-gradient(180deg,rgba(13,27,37,.97),rgba(8,19,27,.97));border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow)}
+.hero{padding:20px}.eyebrow{display:inline-flex;color:var(--cyan);font-size:9px;font-weight:900;letter-spacing:.1em;border:1px solid #48e0c533;background:#48e0c50d;padding:7px 9px;border-radius:999px}.hero h1{font-size:clamp(29px,5vw,50px);line-height:1.04;margin:14px 0 10px;letter-spacing:-.02em}.hero h1 span{color:var(--cyan)}.hero>p{margin:0;max-width:760px;color:#aec0c9;font-size:13px;line-height:1.75}
+.mission{margin-top:16px;padding:12px;border:1px solid #284350;background:#07131c;border-radius:16px}.mission-top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}.mission label{color:#8198a4;font-size:9px;font-weight:800}.demo-note{color:#6d8794;font-size:8px}.mission-row{display:grid;grid-template-columns:1fr 170px;gap:9px}.mission textarea{width:100%;min-height:72px;resize:vertical;border:1px solid #294453;background:#0a1720;color:#fff;border-radius:12px;padding:11px;line-height:1.55;outline:0}.run{border:0;border-radius:12px;background:linear-gradient(135deg,#5be8cf,#36bea7);color:#06211d;font-weight:900;min-height:52px;padding:0 16px;box-shadow:0 8px 24px rgba(72,224,197,.15)}.run:active{transform:translateY(1px)}.run.busy{opacity:.72}.quick{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.quick button{border:1px solid #294453;background:#0a1720;color:#a9bec8;border-radius:999px;padding:8px 11px;font-size:8px}.quick button:active{transform:translateY(1px)}
+.result{display:none;margin-top:12px;padding:17px}.result.show{display:block;animation:rise .28s ease}.decision-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.decision-label{display:flex;align-items:center;gap:8px;color:var(--cyan);font-size:9px;font-weight:900}.state{color:#7be4cf;border:1px solid #2c655e;background:#0b2725;padding:5px 7px;border-radius:999px;font-size:8px}.result h2{font-size:clamp(22px,4.8vw,35px);line-height:1.12;margin:8px 0 3px}.product{font-size:15px;font-weight:900}.summary{margin:5px 0 0;color:#a9bec8;font-size:11px;line-height:1.7;max-width:720px}.confidence{min-width:88px;border:1px solid #2c655e;background:#0b2725;border-radius:13px;padding:9px 10px;text-align:center}.confidence b{display:block;color:#79ead4;font-size:22px}.confidence span{font-size:8px;color:#83a1aa}
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:13px 0}.metric{background:#08141d;border:1px solid #1e3440;border-radius:11px;padding:9px;text-align:center}.metric b{display:block;font-size:15px}.metric span{font-size:8px;color:var(--muted)}
+.recommend{border:1px solid #2b5f5a;border-radius:13px;background:#0b2325;padding:12px}.mini{font-size:8px;color:#7be4cf;font-weight:800}.recommend strong{display:block;font-size:15px;line-height:1.5;margin:4px 0 2px}.recommend p{margin:0;color:#9eb6c1;font-size:9px;line-height:1.55}.actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}.action{border:1px solid #2a4552;background:#0a1720;color:#d8e6eb;border-radius:10px;padding:9px 12px;font-size:9px;font-weight:800}.action.primary{border-color:#2f766c;background:#0e2c2c;color:#84ead7}.action:active{transform:translateY(1px)}.request{margin-top:9px;color:#66808e;font-size:8px}
+.section{margin-top:12px;overflow:hidden}.section-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:13px 14px;border-bottom:1px solid #1d303c}.section-head strong{font-size:12px}.section-head span{font-size:8px;color:#78919f}.findings{padding:9px}.finding{display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px;border:1px solid #203844;background:#091721;border-radius:12px;padding:11px;margin-bottom:7px}.finding:last-child{margin-bottom:0}.finding-main{min-width:0}.finding-top{display:flex;align-items:center;gap:7px;min-width:0}.finding b{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.finding p{margin:3px 0 0;color:#7f99a7;font-size:8px;line-height:1.45}.badge{font-size:7px;font-weight:900;padding:5px 6px;border-radius:999px;flex:0 0 auto}.opp{color:#7ce9d5;background:#10312e;border:1px solid #285d57}.risk{color:var(--red);background:#311a20;border:1px solid #65333b}.info{color:var(--blue);background:#14233a;border:1px solid #2e4d77}.arrow{color:#8fe9d8;font-size:14px}
+.why{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;padding:0 9px 9px}.reason{border:1px solid #203843;background:#091620;border-radius:10px;padding:9px}.reason small{display:block;color:#668493;font-size:7px}.reason b{display:block;font-size:10px;margin-top:3px}.reason p{margin:3px 0 0;color:#839daa;font-size:7px;line-height:1.4}
+.details{margin-top:12px}.details summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:13px 14px;color:#b4c8d0;font-size:10px;font-weight:800}.details summary::-webkit-details-marker{display:none}.details summary:after{content:'＋';color:#69dfca;font-size:13px}.details[open] summary:after{content:'−'}.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:0 10px 10px}.step{border:1px solid #1e3541;background:#091620;border-radius:10px;padding:9px}.step i{font-style:normal;color:var(--cyan);font-size:7px}.step b{display:block;font-size:9px;margin-top:3px}.step span{display:block;color:#7e97a5;font-size:7px;line-height:1.4;margin-top:2px}.audit{text-align:center;color:#5f7987;font:7px/1.5 ui-monospace,Menlo,monospace;padding:0 10px 11px}
+.toast{position:fixed;right:14px;bottom:14px;max-width:calc(100vw - 28px);background:#0a1a23;border:1px solid #315265;color:#d4e4eb;border-radius:11px;padding:10px 12px;font-size:9px;opacity:0;transform:translateY(7px);transition:.2s;z-index:100}.toast.show{opacity:1;transform:none}
+@media(max-width:700px){.wrap{padding:10px}.top{margin-bottom:9px}.status{display:none}.hero{padding:16px}.hero h1{font-size:32px}.hero>p{font-size:11px;line-height:1.7}.mission{margin-top:13px}.mission-row{grid-template-columns:1fr}.mission textarea{min-height:74px}.run{width:100%;min-height:50px}.quick{gap:5px}.quick button{padding:7px 9px}.result{padding:14px}.decision-head{display:block}.confidence{display:inline-flex;align-items:center;gap:7px;min-width:auto;margin-top:9px;padding:6px 9px}.confidence b{font-size:17px}.result h2{font-size:24px}.product{font-size:13px}.summary{font-size:10px}.metrics{gap:5px}.metric{padding:8px 4px}.metric b{font-size:14px}.recommend strong{font-size:13px}.actions{display:grid;grid-template-columns:1fr 1fr}.action{width:100%;min-height:44px}.why{grid-template-columns:1fr 1fr}.steps{grid-template-columns:1fr 1fr}.finding{padding:10px}}
+@media(max-width:390px){.hero h1{font-size:29px}.actions{grid-template-columns:1fr}.why{grid-template-columns:1fr}}
+@keyframes rise{from{opacity:0;transform:translateY(7px)}}
 </style>
 </head>
 <body>
 <div class="wrap">
-<header class="top"><div class="brand"><div class="logo">✦</div><div><b>NEXUS</b><span>من الإشارة إلى الإجراء</span></div></div><div class="live"><i></i>النظام يعمل · وضع العرض</div></header>
+<header class="top">
+  <div class="brand"><div class="logo">✦</div><div><b>NEXUS</b><small>من الإشارة إلى الإجراء</small></div></div>
+  <div class="status"><i></i><span>النظام يعمل · وضع العرض</span></div>
+</header>
+
 <section class="card hero">
-<div class="eyebrow">AI INTELLIGENCE & ACTION ENGINE</div>
-<h1>لا تكتفِ بمعرفة ما تغيّر.<br><span>اعرف ماذا تفعل الآن.</span></h1>
-<p>NEXUS يراقب السوق والمنتجات والمنافسين والموردين والجهات الرسمية، ثم يحوّل الإشارات المهمة إلى قرار وإجراء واضح.</p>
-<div class="mission"><label>المهمة التي تريد من NEXUS تنفيذها</label><div class="row"><textarea id="mission">ابحث عن لابتوب بسعر مستهدف 3,000 ريال، وقارن السوق واكتشف أفضل فرصة شراء تستحق إجراءً.</textarea><button id="run" class="run" onclick="runMission()">حلّل المهمة</button></div>
-<div class="quick"><button onclick="setMission('ابحث عن لابتوب بسعر مستهدف 3,000 ريال، وقارن السوق واكتشف أفضل فرصة شراء تستحق إجراءً.')">أسعار لابتوبات</button><button onclick="setMission('ابحث عن آيفون بسعر مستهدف 4,000 ريال واكتشف أفضل فرصة شراء تستحق إجراءً.')">آيفون</button><button onclick="setMission('راقب المنافسين واكتشف أي تغيير مهم في الأسعار والعروض والإطلاقات.')">منافسون</button><button onclick="setMission('راقب الموردين واكتشف تغيّر الأسعار والتوفر والبدائل التي تستحق التفاوض.')">موردون</button></div></div>
+  <div class="eyebrow">AI INTELLIGENCE & ACTION ENGINE</div>
+  <h1>لا تكتفِ بمعرفة ما تغيّر.<br><span>اعرف ماذا تفعل الآن.</span></h1>
+  <p>NEXUS يراقب السوق والمنتجات والمنافسين والموردين والجهات الرسمية، ثم يربط الإشارات المهمة ليخرج بقرار واضح وإجراء قابل للمراجعة.</p>
+
+  <div class="mission">
+    <div class="mission-top"><label for="mission">المهمة التي تريد من NEXUS تنفيذها</label><span class="demo-note">بيانات تجريبية للعرض</span></div>
+    <div class="mission-row">
+      <textarea id="mission" aria-label="مهمة NEXUS">ابحث عن لابتوب بسعر مستهدف 3,000 ريال، وقارن السوق واكتشف أفضل فرصة شراء تستحق إجراءً.</textarea>
+      <button id="run" class="run" type="button" onclick="runMission()">حلّل المهمة</button>
+    </div>
+    <div class="quick" aria-label="أمثلة سريعة">
+      <button type="button" onclick="setMission('ابحث عن لابتوب بسعر مستهدف 3,000 ريال، وقارن السوق واكتشف أفضل فرصة شراء تستحق إجراءً.')">أسعار لابتوبات</button>
+      <button type="button" onclick="setMission('ابحث عن آيفون بسعر مستهدف 4,000 ريال واكتشف أفضل فرصة شراء تستحق إجراءً.')">آيفون</button>
+      <button type="button" onclick="setMission('راقب المنافسين واكتشف أي تغيير مهم في الأسعار والعروض والإطلاقات.')">منافسون</button>
+      <button type="button" onclick="setMission('راقب الموردين واكتشف تغيّر الأسعار والتوفر والبدائل التي تستحق التفاوض.')">موردون</button>
+    </div>
+  </div>
 </section>
-<section id="result" class="card result"></section>
-<section id="findingsBox" class="card section" style="display:none"><div class="head"><strong>ما الذي اكتشفه NEXUS؟</strong><span>أهم الإشارات</span></div><div id="findings" class="findings"></div><div id="reasons" class="reasonGrid"></div></section>
-<section id="how" class="card section" style="display:none"><div class="head"><strong>كيف وصل NEXUS للقرار؟</strong><span>المسار المختصر</span></div><div class="steps"><div class="step"><i>01</i><b>يكتشف</b><span>يجمع الإشارات.</span></div><div class="step"><i>02</i><b>يفهم</b><span>يربط الأثر.</span></div><div class="step"><i>03</i><b>يقرر</b><span>يولد التوصية.</span></div><div class="step"><i>04</i><b>يتصرف</b><span>يقترح الإجراء.</span></div></div><div class="audit">سجل التدقيق · بيانات تجريبية · قابل للمراجعة</div></section>
+
+<section id="result" class="card result" aria-live="polite"></section>
+<section id="findingsBox" class="card section" style="display:none">
+  <div class="section-head"><strong>الإشارات التي بنت القرار</strong><span>أهم ما اكتشفه NEXUS</span></div>
+  <div id="findings" class="findings"></div>
+  <div id="reasons" class="why"></div>
+</section>
+
+<details id="details" class="card section details" style="display:none">
+  <summary>كيف وصل NEXUS للقرار؟</summary>
+  <div class="steps">
+    <div class="step"><i>01</i><b>يكتشف</b><span>يجمع الإشارات.</span></div>
+    <div class="step"><i>02</i><b>يفهم</b><span>يربط أثرها.</span></div>
+    <div class="step"><i>03</i><b>يقرر</b><span>يولد التوصية.</span></div>
+    <div class="step"><i>04</i><b>يتصرف</b><span>يقترح الإجراء.</span></div>
+  </div>
+  <div class="audit">سجل التدقيق · بيانات تجريبية · قابل للمراجعة</div>
+</details>
+
 <div id="toast" class="toast"></div>
 </div>
+
 <script>
 function digits(s){return String(s).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[,٬،]/g,'')}
 function money(n){return Number(n).toLocaleString('en-US')}
-function setMission(text){document.getElementById('mission').value=text;document.getElementById('mission').focus()}
-function showToast(text){const t=document.getElementById('toast');t.textContent=text;t.classList.add('show');clearTimeout(window._toast);window._toast=setTimeout(()=>t.classList.remove('show'),1800)}
-function info(text){const t=digits(text).toLowerCase();let product='منتج';if(/آيفون|ايفون|iphone|اي فون/.test(t))product='آيفون';else if(/لابتوب|لاب توب|laptop/.test(t))product='لابتوب';else if(/سامسونج/.test(t))product='سامسونج';const nums=[...t.matchAll(/(\d{3,6})/g)].map(x=>Number(x[1])).filter(x=>x>100);const target=nums.length?Math.min(nums[nums.length-1],100000):3000;let type='price';if(/مورد|توريد|مخزون|توفير/.test(t))type='suppliers';else if(/تنظيم|جهة رسمية|امتثال|لائحة|تعميم/.test(t))type='regulation';else if(/منافس|منافسين|منافسون|حملة|إطلاق/.test(t))type='competitors';else if(product==='منتج'&&!/سعر|شراء|أسعار/.test(t))type='products';return{product,target,type}}
+function setMission(text){const el=document.getElementById('mission');el.value=text;el.focus();el.setSelectionRange(el.value.length,el.value.length);showToast('تم تجهيز المهمة — اضغط حلّل المهمة')}
+function showToast(text){const t=document.getElementById('toast');t.textContent=text;t.classList.add('show');clearTimeout(window._toast);window._toast=setTimeout(()=>t.classList.remove('show'),1900)}
+function info(text){
+ const t=digits(text).toLowerCase();
+ let product='منتج';
+ if(/آيفون|ايفون|iphone|اي فون/.test(t))product='آيفون';
+ else if(/لابتوب|لاب توب|laptop/.test(t))product='لابتوب';
+ else if(/سامسونج|galaxy/.test(t))product='سامسونج';
+ const nums=[...t.matchAll(/(\d{3,6})/g)].map(x=>Number(x[1])).filter(x=>x>100);
+ const target=nums.length?Math.min(nums[nums.length-1],100000):3000;
+ let type='price';
+ if(/مورد|توريد|مخزون|توفير/.test(t))type='suppliers';
+ else if(/تنظيم|جهة رسمية|امتثال|لائحة|تعميم/.test(t))type='regulation';
+ else if(/منافس|منافسين|منافسون|حملة|إطلاق/.test(t))type='competitors';
+ else if(product==='منتج'&&!/سعر|شراء|أسعار/.test(t))type='products';
+ return{product,target,type}
+}
 function model(m){
-if(m.type==='price'){const a=Math.max(1,m.target-101),b=Math.max(1,m.target-1),c=m.target+149;return{title:`أفضل فرصة شراء ضمن ${money(m.target)} ريال`,score:94,product:`${m.product} · ${money(a)} ريال`,summary:`تمت مقارنة ثلاث عروض لـ${m.product}. أحدها تحت السعر المستهدف بوضوح ويستحق إجراءً الآن.`,metrics:[[money(a),'أقل سعر'],[money(m.target-a),'تحت الهدف'],['3','عروض مطابقة']],decision:'اشترِ من العرض الأرخص وفعّل المتابعة على السعر',findings:[[`${m.product} · ${money(a)} ريال`,'أقل عرض مكتشف · تحت الهدف بـ'+money(m.target-a),'فرصة','opp'],[`${m.product} · ${money(b)} ريال`,'مطابقة قريبة من السعر المستهدف','مطابقة','info'],[`${m.product} · ${money(c)} ريال`,'أعلى من السعر المستهدف · يستحق الاستبعاد','تجاوز','risk']],reasons:[['السعر','أقل من الهدف',`فرق ${money(m.target-a)} ريال`],['المطابقة','3 عروض','تمت المقارنة'],['الإجراء','الشراء الآن','ثم متابعة السعر']]}}
-if(m.type==='competitors')return{title:'تم اكتشاف تغيّر تنافسي يستحق المتابعة',score:90,product:'المنافسون',summary:'رصد NEXUS تغيّرات في الأسعار والعروض والإطلاقات قد تؤثر على قرارك التجاري.',metrics:[['3','إشارات'],['2','تغيّرات'],['1','أولوية']],decision:'حلّل أثر التغيّر وجهّز استجابة تنافسية',findings:[['تغيير سعري','تحرك في عرض منافس','مهم','opp'],['عرض جديد','حملة تستحق المراجعة','متابعة','info'],['إطلاق','إشارة تنافسية جديدة','راقب','risk']],reasons:[['الأثر','ضغط محتمل','على السعر'],['الأولوية','مرتفعة','تستحق المراجعة'],['الإجراء','استجابة','مقترحة']]}
-if(m.type==='suppliers')return{title:'تم اكتشاف فرصة في سلسلة التوريد',score:92,product:'الموردون',summary:'ظهرت إشارات يمكن أن تساعد في تحسين التكلفة أو التوفر أو شروط التوريد.',metrics:[['3','موردين'],['2','بدائل'],['1','فرصة']],decision:'قارن البدائل وابدأ التفاوض على أفضل تكلفة',findings:[['مورد بديل','تكلفة محتملة أفضل','فرصة','opp'],['تغيّر توفر','مخزون متاح','متابعة','info'],['سعر توريد','فرق قابل للتفاوض','مهم','risk']],reasons:[['التكلفة','تحسين محتمل','يستحق المقارنة'],['التوفر','بديل جاهز','يقلل المخاطر'],['الإجراء','تفاوض','بعد المقارنة']]}
-if(m.type==='regulation')return{title:'تم اكتشاف تحديث تنظيمي يحتاج مراجعة',score:89,product:'الجهات والأنظمة',summary:'وجد NEXUS إشارة تنظيمية تستحق مراجعة أثرها قبل اتخاذ قرار تشغيلي.',metrics:[['3','مصادر'],['2','تغيّرات'],['1','مراجعة']],decision:'راجع أثر التحديث على الامتثال والإجراءات الداخلية',findings:[['تحديث رسمي','تغيّر في متطلب','مهم','opp'],['نطاق الأثر','يحتاج تفسيراً','مراجعة','info'],['امتثال','إجراء محتمل','تنبيه','risk']],reasons:[['المصدر','رسمي','يحتاج تحقق'],['الأثر','امتثال','قبل التنفيذ'],['الإجراء','مراجعة','ثم اعتماد']]}
-return{title:'تم اكتشاف فرصة تستحق الإجراء',score:91,product:m.product,summary:'جمع NEXUS الإشارات المهمة وربطها لتحديد فرصة عملية قابلة للمراجعة.',metrics:[['3','إشارات'],['2','مؤشرات'],['1','فرصة']],decision:'راجع الفرصة وحدد الإجراء الأنسب',findings:[['إشارة قوية','فرصة مكتشفة','فرصة','opp'],['إشارة داعمة','تدعم القرار','مؤشر','info'],['إشارة خطر','تحتاج تحققاً','تنبيه','risk']],reasons:[['الفرصة','واضحة','تستحق المراجعة'],['الثقة','مرتفعة','ضمن العرض'],['الإجراء','محدد','قابل للتنفيذ']]}
+ if(m.type==='price'){
+  const a=Math.max(1,m.target-101),b=Math.max(1,m.target-1),c=m.target+149;
+  return{
+   title:`أفضل فرصة شراء ضمن ${money(m.target)} ريال`,score:94,product:`${m.product} · ${money(a)} ريال`,
+   summary:`تمت مقارنة ثلاث عروض لـ${m.product}. أحدها تحت السعر المستهدف بوضوح ويستحق إجراءً الآن.`,
+   metrics:[[money(a),'أقل سعر'],[money(m.target-a),'تحت الهدف'],['3','عروض مطابقة']],
+   decision:'اشترِ من العرض الأرخص وفعّل المتابعة على السعر',
+   primary:'اعتماد الإجراء',
+   findings:[
+    [`${m.product} · ${money(a)} ريال`,'أقل عرض مكتشف · تحت الهدف بـ'+money(m.target-a),'فرصة','opp'],
+    [`${m.product} · ${money(b)} ريال`,'مطابقة قريبة من السعر المستهدف','مطابقة','info'],
+    [`${m.product} · ${money(c)} ريال`,'أعلى من السعر المستهدف · يستحق الاستبعاد','تجاوز','risk']
+   ],
+   reasons:[['السعر','أقل من الهدف',`فرق ${money(m.target-a)} ريال`],['المطابقة','3 عروض','تمت المقارنة'],['الإجراء','الشراء الآن','ثم متابعة السعر']]
+  }
+ }
+ if(m.type==='competitors')return{title:'تم اكتشاف تغيّر تنافسي يستحق المتابعة',score:90,product:'المنافسون',summary:'رصد NEXUS تغيّرات في الأسعار والعروض والإطلاقات قد تؤثر على قرارك التجاري.',metrics:[['3','إشارات'],['2','تغيّرات'],['1','أولوية']],decision:'حلّل أثر التغيّر وجهّز استجابة تنافسية',primary:'تجهيز الاستجابة',findings:[['تغيير سعري','تحرك في عرض منافس','مهم','opp'],['عرض جديد','حملة تستحق المراجعة','متابعة','info'],['إطلاق','إشارة تنافسية جديدة','راقب','risk']],reasons:[['الأثر','ضغط محتمل','على السعر'],['الأولوية','مرتفعة','تستحق المراجعة'],['الإجراء','استجابة','مقترحة']]}
+ if(m.type==='suppliers')return{title:'تم اكتشاف فرصة في سلسلة التوريد',score:92,product:'الموردون',summary:'ظهرت إشارات يمكن أن تساعد في تحسين التكلفة أو التوفر أو شروط التوريد.',metrics:[['3','موردين'],['2','بدائل'],['1','فرصة']],decision:'قارن البدائل وابدأ التفاوض على أفضل تكلفة',primary:'بدء المقارنة',findings:[['مورد بديل','تكلفة محتملة أفضل','فرصة','opp'],['تغيّر توفر','مخزون متاح','متابعة','info'],['سعر توريد','فرق قابل للتفاوض','مهم','risk']],reasons:[['التكلفة','تحسين محتمل','يستحق المقارنة'],['التوفر','بديل جاهز','يقلل المخاطر'],['الإجراء','تفاوض','بعد المقارنة']]}
+ if(m.type==='regulation')return{title:'تم اكتشاف تحديث تنظيمي يحتاج مراجعة',score:89,product:'الجهات والأنظمة',summary:'وجد NEXUS إشارة تنظيمية تستحق مراجعة أثرها قبل اتخاذ قرار تشغيلي.',metrics:[['3','مصادر'],['2','تغيّرات'],['1','مراجعة']],decision:'راجع أثر التحديث على الامتثال والإجراءات الداخلية',primary:'بدء مراجعة الامتثال',findings:[['تحديث رسمي','تغيّر في متطلب','مهم','opp'],['نطاق الأثر','يحتاج تفسيراً','مراجعة','info'],['امتثال','إجراء محتمل','تنبيه','risk']],reasons:[['المصدر','رسمي','يحتاج تحقق'],['الأثر','امتثال','قبل التنفيذ'],['الإجراء','مراجعة','ثم اعتماد']]}
+ return{title:'تم اكتشاف فرصة تستحق الإجراء',score:91,product:m.product,summary:'جمع NEXUS الإشارات المهمة وربطها لتحديد فرصة عملية قابلة للمراجعة.',metrics:[['3','إشارات'],['2','مؤشرات'],['1','فرصة']],decision:'راجع الفرصة وحدد الإجراء الأنسب',primary:'مراجعة الفرصة',findings:[['إشارة قوية','فرصة مكتشفة','فرصة','opp'],['إشارة داعمة','تدعم القرار','مؤشر','info'],['إشارة خطر','تحتاج تحققاً','تنبيه','risk']],reasons:[['الفرصة','واضحة','تستحق المراجعة'],['الثقة','مرتفعة','ضمن العرض'],['الإجراء','محدد','قابل للتنفيذ']]}
 }
 function runMission(){
-const btn=document.getElementById('run');const text=document.getElementById('mission').value.trim();if(!text){showToast('اكتب المهمة أولاً');return}if(btn.dataset.busy==='1')return;btn.dataset.busy='1';btn.classList.add('busy');btn.textContent='جارٍ التحليل…';
-setTimeout(()=>{try{const m=info(text),d=model(m);render(m,d);showToast('اكتمل تحليل المهمة')}catch(e){showToast('حدث خطأ — أعد المحاولة')}finally{btn.dataset.busy='0';btn.classList.remove('busy');btn.textContent='حلّل المهمة'}},420)
+ const btn=document.getElementById('run');
+ const text=document.getElementById('mission').value.trim();
+ if(!text){showToast('اكتب المهمة أولاً');return}
+ if(btn.dataset.busy==='1')return;
+ btn.dataset.busy='1';btn.classList.add('busy');btn.textContent='جارٍ التحليل…';
+ setTimeout(()=>{try{const m=info(text),d=model(m);render(m,d);showToast('اكتمل تحليل المهمة')}catch(e){console.error(e);showToast('حدث خطأ — أعد المحاولة')}finally{btn.dataset.busy='0';btn.classList.remove('busy');btn.textContent='حلّل المهمة'}},420)
 }
-function render(m,d){const r=document.getElementById('result');r.innerHTML=`<div class="resultTop"><div><div class="kicker">قرار NEXUS</div><h2>${d.title}</h2><div class="product">${d.product}</div><p class="summary">${d.summary}</p></div><div class="conf"><b>${d.score}%</b><span>ثقة القرار</span></div></div><div class="metrics">${d.metrics.map(x=>`<div class="metric"><b>${x[0]}</b><span>${x[1]}</span></div>`).join('')}</div><div class="recommend"><div class="mini">التوصية</div><strong>${d.decision}</strong><p>هذا القرار مبني على الإشارات المعروضة أدناه ويمكن مراجعته قبل التنفيذ.</p></div><div class="request">المهمة: ${m.product}${m.type==='price'?' · السعر المستهدف '+money(m.target)+' ريال':''}</div>`;r.classList.add('show');const f=document.getElementById('findings');f.innerHTML=d.findings.map(x=>`<div class="finding"><span class="badge ${x[3]}">${x[2]}</span><div><b>${x[0]}</b><p>${x[1]}</p></div><span class="arrow">←</span></div>`).join('');document.getElementById('reasons').innerHTML=d.reasons.map(x=>`<div class="reason"><small>${x[0]}</small><b>${x[1]}</b><p>${x[2]}</p></div>`).join('');document.getElementById('findingsBox').style.display='block';document.getElementById('how').style.display='block';r.scrollIntoView({behavior:'smooth',block:'start'})}
-window.addEventListener('error',e=>showToast('خطأ في تشغيل الواجهة'));
+function render(m,d){
+ const r=document.getElementById('result');
+ r.innerHTML=`
+  <div class="decision-head">
+   <div>
+    <div class="decision-label"><span>قرار NEXUS</span><span class="state">جاهز للمراجعة</span></div>
+    <h2>${d.title}</h2>
+    <div class="product">${d.product}</div>
+    <p class="summary">${d.summary}</p>
+   </div>
+   <div class="confidence"><b>${d.score}%</b><span>ثقة القرار</span></div>
+  </div>
+  <div class="metrics">${d.metrics.map(x=>`<div class="metric"><b>${x[0]}</b><span>${x[1]}</span></div>`).join('')}</div>
+  <div class="recommend"><div class="mini">ماذا يفعل NEXUS الآن؟</div><strong>${d.decision}</strong><p>التوصية مبنية على الإشارات المعروضة ويمكن مراجعتها قبل التنفيذ.</p></div>
+  <div class="actions"><button type="button" class="action primary" onclick="takeAction('${String(d.primary||'اعتماد الإجراء').replace(/'/g,'&#39;')}')">${d.primary||'اعتماد الإجراء'}</button><button type="button" class="action" onclick="showEvidence()">عرض الأدلة</button></div>
+  <div class="request">المهمة: ${m.product}${m.type==='price'?' · السعر المستهدف '+money(m.target)+' ريال':''}</div>`;
+ r.classList.add('show');
+ document.getElementById('findings').innerHTML=d.findings.map(x=>`<div class="finding"><div class="finding-main"><div class="finding-top"><span class="badge ${x[3]}">${x[2]}</span><b>${x[0]}</b></div><p>${x[1]}</p></div><span class="arrow">←</span></div>`).join('');
+ document.getElementById('reasons').innerHTML=d.reasons.map(x=>`<div class="reason"><small>${x[0]}</small><b>${x[1]}</b><p>${x[2]}</p></div>`).join('');
+ document.getElementById('findingsBox').style.display='block';document.getElementById('details').style.display='block';
+ setTimeout(()=>r.scrollIntoView({behavior:'smooth',block:'start'}),30)
+}
+function showEvidence(){document.getElementById('findingsBox').scrollIntoView({behavior:'smooth',block:'start'});showToast('تم فتح الأدلة التي بنت القرار')}
+function takeAction(label){showToast('تم تجهيز: '+label+' — التنفيذ ما زال بموافقة المستخدم');}
+window.addEventListener('error',()=>showToast('حدث خطأ في تشغيل الواجهة'));
 </script>
 </body>
 </html>
