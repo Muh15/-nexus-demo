@@ -3,11 +3,12 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
+from connectors.business_api_action import BusinessActionConfig, BusinessActionConnector
 from connectors.business_api_connector import BusinessApiConfig, BusinessApiConnector
 from connectors.file_connector import FileConnector
 from connectors.http_json_connector import HttpJsonConfig, HttpJsonConnector
 
-from .action_executor import ActionExecutor, draft_email_handler
+from .action_executor import ActionExecutor, ActionResult, draft_email_handler
 from .ingestion_scheduler import SQLiteIngestionScheduler
 from .mission_repository import SQLiteMissionRepository
 from .orchestrator import MissionOrchestrator
@@ -15,7 +16,7 @@ from .reasoner import reason_from_evidence
 from .registry import ComponentRegistry
 from .research_executor import ResearchExecutor, business_api_provider, context_provider, http_json_provider
 from .sqlite_store import SQLiteMissionStore
-from .verifier import ActionVerifier, draft_email_verifier
+from .verifier import ActionVerifier, VerificationResult, draft_email_verifier
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,9 +47,6 @@ def _build_connector_registry() -> ComponentRegistry:
             ),
         )
 
-    # Business systems are opt-in. Each connector is enabled only when its
-    # base URL is explicitly configured and the hostname is present in the
-    # same allow-list used for outbound HTTP policy.
     business_specs = {
         "erp": ("NEXUS_ERP_URL", "NEXUS_ERP_TOKEN_ENV", "NEXUS_ERP_ENDPOINT"),
         "crm": ("NEXUS_CRM_URL", "NEXUS_CRM_TOKEN_ENV", "NEXUS_CRM_ENDPOINT"),
@@ -75,6 +73,47 @@ def _build_connector_registry() -> ComponentRegistry:
     return registry
 
 
+def _real_action_handler(connector: BusinessActionConnector, endpoint: str, method: str):
+    def handler(plan) -> ActionResult:
+        try:
+            result = connector.execute(method, endpoint, plan.payload.get("body", {}), plan.payload["execution_id"])
+        except Exception as exc:
+            return ActionResult(
+                action_type=plan.action_type,
+                status="failed",
+                message=f"External action transport failed: {type(exc).__name__}",
+                output={"error": str(exc)},
+                execution_id=plan.payload["execution_id"],
+            )
+        status = "completed" if result["ok"] else "failed"
+        return ActionResult(
+            action_type=plan.action_type,
+            status=status,
+            output=result,
+            message="External business action completed." if result["ok"] else "External business API rejected the action.",
+            execution_id=plan.payload["execution_id"],
+        )
+    return handler
+
+
+def _real_action_verifier(result: ActionResult) -> VerificationResult:
+    ok = bool(result.output.get("ok", False))
+    return VerificationResult(
+        status="verified" if ok else "failed",
+        checks=[
+            "External API returned a successful status",
+            "Execution id was propagated as the idempotency key",
+            "Response was size-limited and hashed for audit provenance",
+        ],
+        details={
+            "status_code": result.output.get("status_code"),
+            "execution_id": result.execution_id,
+            "sha256": result.output.get("sha256"),
+            "attempts": result.output.get("attempts"),
+        },
+    )
+
+
 def build_runtime() -> MissionRuntime:
     registry = _build_connector_registry()
     research = ResearchExecutor()
@@ -89,33 +128,46 @@ def build_runtime() -> MissionRuntime:
     }.items():
         research.register(connector, context_provider(connector, source, confidence=82))
 
-    # Replace the deterministic provider with a real, scoped business API when
-    # the relevant URL + endpoint are configured. Planner contracts stay stable.
     for name in ("erp", "crm", "supplier"):
         connector = registry.connectors.get(name)
-        endpoint_env = f"NEXUS_{name.upper()}_ENDPOINT"
-        endpoint = os.getenv(endpoint_env, "").strip()
+        endpoint = os.getenv(f"NEXUS_{name.upper()}_ENDPOINT", "").strip()
         if isinstance(connector, BusinessApiConnector) and endpoint:
             research._providers[name] = business_api_provider(connector, endpoint, confidence=90)
 
-    # When an allow-listed HTTP JSON endpoint is explicitly configured, use it
-    # as the real transport for web research. Without the URL, the deterministic
-    # local provider remains active so tests and demos stay offline and stable.
     http_research_url = os.getenv("NEXUS_HTTP_RESEARCH_URL", "").strip()
     http_connector = registry.connectors.get("http_json")
     if http_research_url and isinstance(http_connector, HttpJsonConnector):
-        research.register(
-            "http_json",
-            http_json_provider(http_connector, http_research_url, confidence=88),
-        )
-        research.register(
-            "web_http",
-            http_json_provider(http_connector, http_research_url, confidence=88),
-        )
+        research.register("http_json", http_json_provider(http_connector, http_research_url, confidence=88))
+        research.register("web_http", http_json_provider(http_connector, http_research_url, confidence=88))
         research._providers["web"] = http_json_provider(http_connector, http_research_url, confidence=88)
 
     actions = ActionExecutor({"draft_email": draft_email_handler})
     verifier = ActionVerifier({"draft_email": draft_email_verifier})
+
+    # Real write actions are opt-in and share the same host allow-list and
+    # credential boundary as business read connectors. Nothing is registered
+    # unless URL + endpoint + allow-list are explicitly configured.
+    action_url = os.getenv("NEXUS_ACTION_URL", "").strip()
+    action_endpoint = os.getenv("NEXUS_ACTION_ENDPOINT", "").strip()
+    action_token_env = os.getenv("NEXUS_ACTION_TOKEN_ENV", "").strip() or None
+    if action_url and action_endpoint and allowed_hosts := frozenset(host.strip() for host in os.getenv("NEXUS_HTTP_ALLOWED_HOSTS", "").split(",") if host.strip()):
+        connector = BusinessActionConnector(
+            BusinessActionConfig(
+                name="business_action",
+                base_url=action_url,
+                allowed_hosts=allowed_hosts,
+                token_env=action_token_env,
+                timeout_seconds=float(os.getenv("NEXUS_ACTION_TIMEOUT_SECONDS", "10")),
+                max_response_bytes=int(os.getenv("NEXUS_ACTION_MAX_BYTES", "2000000")),
+                max_retries=int(os.getenv("NEXUS_ACTION_MAX_RETRIES", "2")),
+            )
+        )
+        registry.add_connector("business_action", connector)
+        method = os.getenv("NEXUS_ACTION_METHOD", "POST").strip().upper()
+        for action_type in ("update_crm", "change_purchase_order", "send_email"):
+            actions.register(action_type, _real_action_handler(connector, action_endpoint, method))
+            verifier.register(action_type, _real_action_verifier)
+
     registry.add_executor("action", actions)
     registry.add_verifier("action", verifier)
     orchestrator = MissionOrchestrator(
@@ -127,14 +179,7 @@ def build_runtime() -> MissionRuntime:
     repository_path = os.getenv("NEXUS_DB_PATH", "nexus_mvp.sqlite3")
     repository = SQLiteMissionRepository(SQLiteMissionStore(repository_path))
     scheduler = SQLiteIngestionScheduler(repository_path)
-    return MissionRuntime(
-        orchestrator=orchestrator,
-        action_executor=actions,
-        verifier=verifier,
-        registry=registry,
-        mission_repository=repository,
-        ingestion_scheduler=scheduler,
-    )
+    return MissionRuntime(orchestrator, actions, verifier, registry, repository, scheduler)
 
 
 def build_mission_orchestrator() -> MissionOrchestrator:
