@@ -228,6 +228,13 @@ def _decision_from_core(mission: MissionState) -> Decision:
     }))
 
 
+def _audit_timestamp(mission: MissionState, stage: str) -> str | None:
+    for item in reversed(mission.audit):
+        if item.get("stage") == stage:
+            return str(item.get("timestamp", ""))
+    return None
+
+
 def _to_api_mission(mission: MissionState) -> Mission:
     decision = _decision_from_core(mission)
     completed = sum(1 for item in mission.research_results if item.status == "completed")
@@ -247,12 +254,14 @@ def _to_api_mission(mission: MissionState) -> Mission:
             action["output"] = mission.action_result.output
             action["result_message"] = mission.action_result.message
             action["execution_id"] = mission.action_result.execution_id
+            action["executed_at"] = _audit_timestamp(mission, "executed")
     verification = None
     if mission.verification is not None:
         verification = {
             "status": mission.verification.status,
             "checks": mission.verification.checks,
             "details": mission.verification.details,
+            "verified_at": _audit_timestamp(mission, "verified"),
             "execution_id": mission.action_result.execution_id if mission.action_result else None,
         }
     audit = [AuditEvent(timestamp=str(item.get("timestamp", "")), stage=str(item.get("stage", "")), message=str(item.get("message", ""))) for item in mission.audit]
