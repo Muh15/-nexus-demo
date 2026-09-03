@@ -12,6 +12,7 @@ from .action_executor import ActionExecutor, ActionResult, draft_email_handler
 from .ingestion_scheduler import SQLiteIngestionScheduler
 from .mission_repository import SQLiteMissionRepository
 from .orchestrator import MissionOrchestrator
+from .read_back_verifier import ReadAfterWriteVerifier, build_read_back_verifier_from_env
 from .reasoner import reason_from_evidence
 from .registry import ComponentRegistry
 from .research_executor import ResearchExecutor, business_api_provider, context_provider, http_json_provider
@@ -75,23 +76,33 @@ def _build_connector_registry() -> ComponentRegistry:
 
 def _real_action_handler(connector: BusinessActionConnector, endpoint: str, method: str):
     def handler(plan) -> ActionResult:
+        execution_id = plan.payload["execution_id"]
+        request_body = dict(plan.payload.get("body", {}))
         try:
-            result = connector.execute(method, endpoint, plan.payload.get("body", {}), plan.payload["execution_id"])
+            result = connector.execute(method, endpoint, request_body, execution_id)
         except Exception as exc:
             return ActionResult(
                 action_type=plan.action_type,
                 status="failed",
                 message=f"External action transport failed: {type(exc).__name__}",
-                output={"error": str(exc)},
-                execution_id=plan.payload["execution_id"],
+                output={
+                    "error": type(exc).__name__,
+                    "target": plan.payload.get("target"),
+                    "request_body": request_body,
+                },
+                execution_id=execution_id,
             )
         status = "completed" if result["ok"] else "failed"
         return ActionResult(
             action_type=plan.action_type,
             status=status,
-            output=result,
+            output={
+                **result,
+                "target": plan.payload.get("target"),
+                "request_body": request_body,
+            },
             message="External business action completed." if result["ok"] else "External business API rejected the action.",
-            execution_id=plan.payload["execution_id"],
+            execution_id=execution_id,
         )
     return handler
 
@@ -162,9 +173,18 @@ def build_runtime() -> MissionRuntime:
         )
         registry.add_connector("business_action", connector)
         method = os.getenv("NEXUS_ACTION_METHOD", "POST").strip().upper()
+        read_back: ReadAfterWriteVerifier | None = None
+        try:
+            read_back = build_read_back_verifier_from_env()
+        except ValueError:
+            # Invalid external verification configuration must not break the local runtime.
+            read_back = None
         for action_type in ("update_crm", "change_purchase_order", "send_email"):
             actions.register(action_type, _real_action_handler(connector, action_endpoint, method))
-            verifier.register(action_type, _real_action_verifier)
+            if read_back is not None:
+                verifier.register(action_type, read_back.verify)
+            else:
+                verifier.register(action_type, _real_action_verifier)
 
     registry.add_executor("action", actions)
     registry.add_verifier("action", verifier)
