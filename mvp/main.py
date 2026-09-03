@@ -12,35 +12,22 @@ from pydantic import BaseModel, Field
 from connectors.normalize import normalize_records
 from core.auth import ActorRole, AuthenticationError, Principal, authenticate_api_key
 from core.models import BusinessContext, Evidence
-from core.orchestrator import MissionState
 from core.reasoner import reason_from_evidence
 from core.runtime import MissionRuntime, build_runtime
 from core.mission_repository import SQLiteMissionRepository
 
 app = FastAPI(title="NEXUS MVP", version="1.0.0", description="Goal-driven AI intelligence: Observe → Understand → Research → Reason → Decide → Act → Verify")
 
-class MissionStatus(str, Enum):
-    ANALYZING = "analyzing"; AWAITING_APPROVAL = "awaiting_approval"; APPROVED = "approved"; EXECUTED = "executed"; VERIFIED = "verified"
-class SourceType(str, Enum):
-    ERP="erp"; CONTRACT="contract"; SUPPLIER="supplier"; MARKET="market"; FILE="file"; CRM="crm"; WEB="web"; UNKNOWN="unknown"
-class Signal(BaseModel):
-    id: str; source: SourceType; title: str; value: str; impact: str; confidence: int = Field(ge=0, le=100)
-class MissionRequest(BaseModel):
-    goal: str = Field(min_length=5, max_length=500)
-    constraints: list[str] = Field(default_factory=list)
-    action_type: str = Field(default="draft_email", max_length=64)
-    target: str | None = Field(default=None, max_length=500)
-    body: dict[str, Any] = Field(default_factory=dict)
-class IngestRequest(BaseModel):
-    filename: str = Field(min_length=1, max_length=255); content: str = Field(min_length=1, max_length=2_000_000)
-class Decision(BaseModel):
-    title: str; summary: str; priority: str; confidence: int = Field(ge=0, le=100); rationale: list[str]; recommended_action: str; expected_impact: str; evidence_ids: list[str] = Field(default_factory=list); evidence_count: int = 0; evidence_confidence: int = 0
-class AuditEvent(BaseModel):
-    timestamp: str; stage: str; message: str; metadata: dict[str, Any] = Field(default_factory=dict)
-class ResearchSummary(BaseModel):
-    domains: list[str] = Field(default_factory=list); completed: int = 0; unavailable: int = 0; evidence_added: int = 0
-class Mission(BaseModel):
-    id: str; tenant_id: str; created_at: str; status: MissionStatus; goal: str; constraints: list[str]; sources_used: list[SourceType]; signals: list[Signal]; research: ResearchSummary = Field(default_factory=ResearchSummary); decision: Decision; action: dict[str, Any] | None = None; verification: dict[str, Any] | None = None; audit: list[AuditEvent]
+class MissionStatus(str, Enum): ANALYZING="analyzing"; AWAITING_APPROVAL="awaiting_approval"; APPROVED="approved"; EXECUTED="executed"; VERIFIED="verified"
+class SourceType(str, Enum): ERP="erp"; CONTRACT="contract"; SUPPLIER="supplier"; MARKET="market"; FILE="file"; CRM="crm"; WEB="web"; UNKNOWN="unknown"
+class Signal(BaseModel): id: str; source: SourceType; title: str; value: str; impact: str; confidence: int = Field(ge=0, le=100)
+class MissionRequest(BaseModel): goal: str = Field(min_length=5, max_length=500); constraints: list[str] = Field(default_factory=list); action_type: str = Field(default="draft_email", max_length=64); target: str | None = Field(default=None, max_length=500); body: dict[str, Any] = Field(default_factory=dict)
+class IngestRequest(BaseModel): filename: str = Field(min_length=1, max_length=255); content: str = Field(min_length=1, max_length=2_000_000)
+class ScheduleRequest(BaseModel): connector: str = Field(min_length=1, max_length=64); source: str = Field(min_length=1, max_length=255); interval_seconds: int = Field(ge=60, le=31_536_000); config: dict[str, Any] = Field(default_factory=dict); start_at: datetime | None = None
+class Decision(BaseModel): title: str; summary: str; priority: str; confidence: int = Field(ge=0, le=100); rationale: list[str]; recommended_action: str; expected_impact: str; evidence_ids: list[str] = Field(default_factory=list); evidence_count: int = 0; evidence_confidence: int = 0
+class AuditEvent(BaseModel): timestamp: str; stage: str; message: str; metadata: dict[str, Any] = Field(default_factory=dict)
+class ResearchSummary(BaseModel): domains: list[str] = Field(default_factory=list); completed: int = 0; unavailable: int = 0; evidence_added: int = 0
+class Mission(BaseModel): id: str; tenant_id: str; created_at: str; status: MissionStatus; goal: str; constraints: list[str]; sources_used: list[SourceType]; signals: list[Signal]; research: ResearchSummary = Field(default_factory=ResearchSummary); decision: Decision; action: dict[str, Any] | None = None; verification: dict[str, Any] | None = None; audit: list[AuditEvent]
 
 SAMPLE_CONTEXT = {"company":"NEXUS Demo Company","currency":"SAR","suppliers":[{"name":"ABC Industrial","monthly_spend":420000,"price_change":7,"contract_days_left":43},{"name":"Northstar Supply","monthly_spend":180000,"market_delta":-3,"contract_days_left":118}],"operational":{"target_cost_reduction_pct":10,"quality_floor":"unchanged","active_contract_policy":"do_not_break"}}
 DEFAULT_TENANT="demo-tenant"; DEFAULT_ROLE=ActorRole.ADMIN; TENANT_PATTERN=re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"); INGESTED_DATA: dict[str,list[dict[str,Any]]]={}; RUNTIME: MissionRuntime=build_runtime(); MISSION_REPOSITORY: SQLiteMissionRepository=RUNTIME.mission_repository
@@ -65,7 +52,8 @@ def require_role(role: ActorRole, allowed: set[ActorRole]):
     if role not in allowed: raise HTTPException(403,f"Role '{role.value}' is not authorized for this operation")
 
 def sample_signals():
-    return [Signal(id="sig-001",source=SourceType.SUPPLIER,title="Supplier ABC announced a price increase",value="+7% starting next cycle",impact="Raises cost on a high-spend category",confidence=97),Signal(id="sig-002",source=SourceType.ERP,title="ABC represents a large share of monthly spend",value="420,000 SAR / month",impact="Makes the price change financially material",confidence=95),Signal(id="sig-003",source=SourceType.MARKET,title="Market indicator moved in the opposite direction",value="-3% versus the last reference period",impact="Weakens the case for accepting a full +7% increase",confidence=86),Signal(id="sig-004",source=SourceType.CONTRACT,title="Contract permits renegotiation before the increase",value="43 days remaining",impact="Creates a safe intervention window",confidence=94),Signal(id="sig-005",source=SourceType.SUPPLIER,title="Alternative supplier has spare capacity",value="Up to 25% of current volume",impact="Provides negotiation leverage and a fallback",confidence=81)]
+    from core.models import BusinessContext, Evidence
+    return [] if False else [Signal(id="sig-001",source=SourceType.SUPPLIER,title="Supplier ABC announced a price increase",value="+7% starting next cycle",impact="Raises cost on a high-spend category",confidence=97),Signal(id="sig-002",source=SourceType.ERP,title="ABC represents a large share of monthly spend",value="420,000 SAR / month",impact="Makes the price change financially material",confidence=95),Signal(id="sig-003",source=SourceType.MARKET,title="Market indicator moved in the opposite direction",value="-3% versus the last reference period",impact="Weakens the case for accepting a full +7% increase",confidence=86),Signal(id="sig-004",source=SourceType.CONTRACT,title="Contract permits renegotiation before the increase",value="43 days remaining",impact="Creates a safe intervention window",confidence=94),Signal(id="sig-005",source=SourceType.SUPPLIER,title="Alternative supplier has spare capacity",value="Up to 25% of current volume",impact="Provides negotiation leverage and a fallback",confidence=81)]
 def signals_from_ingestion(tenant_id):
     out=[]
     for idx,r in enumerate(INGESTED_DATA.get(tenant_id,[]),1):
@@ -122,6 +110,30 @@ def ingest_file(request:IngestRequest,tenant_id:str=Depends(tenant_context),role
 @app.get("/api/ingest")
 def list_ingested(tenant_id:str=Depends(tenant_context),role:ActorRole=Depends(role_context)):
     require_role(role,set(ActorRole)); records=INGESTED_DATA.get(tenant_id,[]); return {"tenant_id":tenant_id,"count":len(records),"records":records}
+@app.post("/api/ingest/schedules")
+def create_ingestion_schedule(request:ScheduleRequest,principal:Principal=Depends(principal_context)):
+    require_role(principal.role,{ActorRole.OPERATOR,ActorRole.ADMIN})
+    if request.connector not in RUNTIME.registry.connectors: raise HTTPException(400,f"Connector '{request.connector}' is not registered")
+    try:
+        job=RUNTIME.ingestion_scheduler.register(tenant_id=principal.tenant_id,connector=request.connector,source=request.source,interval_seconds=request.interval_seconds,config=request.config,start_at=request.start_at)
+    except ValueError as exc: raise HTTPException(400,str(exc)) from exc
+    return job
+@app.get("/api/ingest/schedules")
+def list_ingestion_schedules(principal:Principal=Depends(principal_context)):
+    require_role(principal.role,{ActorRole.VIEWER,ActorRole.OPERATOR,ActorRole.ADMIN}); return RUNTIME.ingestion_scheduler.list(principal.tenant_id)
+@app.post("/api/ingest/schedules/run")
+def run_ingestion_schedules(principal:Principal=Depends(principal_context)):
+    require_role(principal.role,{ActorRole.OPERATOR,ActorRole.ADMIN}); return {"tenant_id":principal.tenant_id,"runs":[r.__dict__ for r in RUNTIME.scheduled_ingestion.run_due(principal.tenant_id)]}
+@app.post("/api/ingest/schedules/{job_id}/run")
+def run_ingestion_schedule(job_id:str,principal:Principal=Depends(principal_context)):
+    require_role(principal.role,{ActorRole.OPERATOR,ActorRole.ADMIN}); jobs=[j for j in RUNTIME.ingestion_scheduler.list(principal.tenant_id) if j.id==job_id]
+    if not jobs: raise HTTPException(404,"Ingestion job not found")
+    return RUNTIME.scheduled_ingestion.run_job(jobs[0])
+@app.post("/api/ingest/schedules/{job_id}/disable")
+def disable_ingestion_schedule(job_id:str,principal:Principal=Depends(principal_context)):
+    require_role(principal.role,{ActorRole.OPERATOR,ActorRole.ADMIN})
+    if not RUNTIME.ingestion_scheduler.disable(job_id,principal.tenant_id): raise HTTPException(404,"Ingestion job not found")
+    return {"status":"disabled","job_id":job_id,"tenant_id":principal.tenant_id}
 @app.post("/api/missions",response_model=Mission,status_code=201)
 def create_mission(request:MissionRequest,principal:Principal=Depends(principal_context)):
     require_role(principal.role,{ActorRole.OPERATOR,ActorRole.ADMIN}); signals=sample_signals()+signals_from_ingestion(principal.tenant_id); records=[{"supplier":s.title,"monthly_spend":s.value,"impact":s.impact,"source":s.source.value} for s in signals]
