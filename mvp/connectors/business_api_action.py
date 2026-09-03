@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import random
 import time
 from dataclasses import dataclass
 from urllib.parse import urljoin, urlparse
@@ -21,6 +22,8 @@ class BusinessActionConfig:
     max_request_bytes: int = 200_000
     max_retries: int = 2
     retry_backoff_seconds: float = 0.05
+    retry_backoff_max_seconds: float = 2.0
+    retry_jitter_ratio: float = 0.25
 
 
 class BusinessActionConnector:
@@ -37,6 +40,8 @@ class BusinessActionConnector:
             raise ValueError("request/response limits must be positive")
         if config.max_retries < 0 or config.retry_backoff_seconds < 0:
             raise ValueError("retry settings must be non-negative")
+        if config.retry_backoff_max_seconds <= 0 or config.retry_jitter_ratio < 0:
+            raise ValueError("retry backoff/jitter settings are invalid")
 
     def _url(self, endpoint: str) -> str:
         url = urljoin(self.config.base_url.rstrip("/") + "/", endpoint.lstrip("/"))
@@ -44,6 +49,24 @@ class BusinessActionConnector:
         if parsed.hostname not in self.config.allowed_hosts:
             raise ValueError(f"action host is not allow-listed: {parsed.hostname}")
         return url
+
+    def _retry_delay(self, attempt: int, response: httpx.Response | None = None) -> float:
+        base = min(
+            self.config.retry_backoff_seconds * (2**attempt),
+            self.config.retry_backoff_max_seconds,
+        )
+        jitter = base * self.config.retry_jitter_ratio * random.random()
+        retry_after = 0.0
+        if response is not None:
+            value = response.headers.get("Retry-After", "").strip()
+            if value.isdigit():
+                retry_after = min(float(value), self.config.retry_backoff_max_seconds)
+        return min(max(base + jitter, retry_after), self.config.retry_backoff_max_seconds)
+
+    def _sleep_before_retry(self, attempt: int, response: httpx.Response | None = None) -> None:
+        delay = self._retry_delay(attempt, response)
+        if delay > 0:
+            time.sleep(delay)
 
     def execute(self, method: str, endpoint: str, payload: dict, execution_id: str) -> dict:
         method = method.upper()
@@ -76,8 +99,7 @@ class BusinessActionConnector:
                     response = client.request(method, url, headers=headers, content=raw_payload)
                 transient = response.status_code in {408, 429} or 500 <= response.status_code < 600
                 if transient and attempt < self.config.max_retries:
-                    if self.config.retry_backoff_seconds:
-                        time.sleep(self.config.retry_backoff_seconds * (2**attempt))
+                    self._sleep_before_retry(attempt, response)
                     continue
                 raw = response.content
                 if len(raw) > self.config.max_response_bytes:
@@ -100,6 +122,5 @@ class BusinessActionConnector:
                 last_error = exc
                 if attempt >= self.config.max_retries:
                     raise
-                if self.config.retry_backoff_seconds:
-                    time.sleep(self.config.retry_backoff_seconds * (2**attempt))
+                self._sleep_before_retry(attempt)
         raise last_error or RuntimeError("business action failed")
