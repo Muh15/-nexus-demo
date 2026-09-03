@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 from pathlib import Path
@@ -8,7 +9,7 @@ from typing import Any
 
 
 class SQLiteMissionStore:
-    """Durable mission store with an explicit tenant boundary."""
+    """Durable mission store with tenant-scoped snapshots and append-only history."""
 
     DEFAULT_TENANT = "default"
 
@@ -41,6 +42,21 @@ class SQLiteMissionStore:
             if "tenant_id" not in columns:
                 connection.execute("ALTER TABLE missions ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'default'")
             connection.execute("CREATE INDEX IF NOT EXISTS idx_missions_tenant_updated ON missions (tenant_id, updated_at DESC)")
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS mission_events (
+                    event_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    mission_id TEXT NOT NULL,
+                    tenant_id TEXT NOT NULL,
+                    event_hash TEXT NOT NULL UNIQUE,
+                    event_json TEXT NOT NULL,
+                    recorded_at TEXT NOT NULL
+                )
+                """
+            )
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_mission_events_tenant_mission ON mission_events (tenant_id, mission_id, event_id)"
+            )
             connection.commit()
 
     def save(self, mission_id: str, payload: dict[str, Any], updated_at: str, tenant_id: str = DEFAULT_TENANT) -> None:
@@ -58,6 +74,56 @@ class SQLiteMissionStore:
                 (mission_id, tenant_id, serialized, updated_at),
             )
             connection.commit()
+
+    def append_event(
+        self,
+        *,
+        mission_id: str,
+        tenant_id: str,
+        event: dict[str, Any],
+        recorded_at: str,
+    ) -> bool:
+        """Append one immutable event; duplicate semantic events are ignored."""
+        event_json = json.dumps(event, ensure_ascii=False, separators=(",", ":"), sort_keys=True, default=str)
+        event_hash = hashlib.sha256(
+            f"{tenant_id}\n{mission_id}\n{event_json}".encode("utf-8")
+        ).hexdigest()
+        with self._lock, self._connect() as connection:
+            cursor = connection.execute(
+                """
+                INSERT OR IGNORE INTO mission_events
+                    (mission_id, tenant_id, event_hash, event_json, recorded_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (mission_id, tenant_id, event_hash, event_json, recorded_at),
+            )
+            connection.commit()
+            return cursor.rowcount > 0
+
+    def list_events(self, mission_id: str, tenant_id: str = DEFAULT_TENANT) -> list[dict[str, Any]]:
+        with self._lock, self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT event_id, mission_id, tenant_id, event_json, recorded_at
+                FROM mission_events
+                WHERE mission_id = ? AND tenant_id = ?
+                ORDER BY event_id ASC
+                """,
+                (mission_id, tenant_id),
+            ).fetchall()
+        events: list[dict[str, Any]] = []
+        for row in rows:
+            event = json.loads(row["event_json"])
+            events.append(
+                {
+                    "event_id": row["event_id"],
+                    "mission_id": row["mission_id"],
+                    "tenant_id": row["tenant_id"],
+                    "recorded_at": row["recorded_at"],
+                    "event": event,
+                }
+            )
+        return events
 
     def get(self, mission_id: str, tenant_id: str = DEFAULT_TENANT) -> dict[str, Any] | None:
         with self._lock, self._connect() as connection:
