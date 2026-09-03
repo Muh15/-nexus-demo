@@ -54,40 +54,22 @@ class SQLiteIngestionScheduler:
         if self.path not in {":memory:", ""}:
             Path(self.path).parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as connection:
-            connection.execute(
-                """
+            connection.execute("""
                 CREATE TABLE IF NOT EXISTS ingestion_jobs (
-                    job_id TEXT PRIMARY KEY,
-                    tenant_id TEXT NOT NULL,
-                    connector TEXT NOT NULL,
-                    source TEXT NOT NULL,
-                    interval_seconds INTEGER NOT NULL,
-                    enabled INTEGER NOT NULL,
-                    cursor TEXT,
-                    config TEXT NOT NULL,
-                    last_run_at TEXT,
-                    next_run_at TEXT NOT NULL,
-                    created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL
+                    job_id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, connector TEXT NOT NULL,
+                    source TEXT NOT NULL, interval_seconds INTEGER NOT NULL, enabled INTEGER NOT NULL,
+                    cursor TEXT, config TEXT NOT NULL, last_run_at TEXT, next_run_at TEXT NOT NULL,
+                    created_at TEXT NOT NULL, updated_at TEXT NOT NULL
                 )
-                """
-            )
+            """)
             connection.execute("CREATE INDEX IF NOT EXISTS idx_ingestion_jobs_due ON ingestion_jobs (tenant_id, enabled, next_run_at)")
-            connection.execute(
-                """
+            connection.execute("""
                 CREATE TABLE IF NOT EXISTS ingestion_job_runs (
-                    run_id TEXT PRIMARY KEY,
-                    job_id TEXT NOT NULL,
-                    tenant_id TEXT NOT NULL,
-                    started_at TEXT NOT NULL,
-                    finished_at TEXT,
-                    status TEXT NOT NULL,
-                    cursor_before TEXT,
-                    cursor_after TEXT,
-                    message TEXT NOT NULL
+                    run_id TEXT PRIMARY KEY, job_id TEXT NOT NULL, tenant_id TEXT NOT NULL,
+                    started_at TEXT NOT NULL, finished_at TEXT, status TEXT NOT NULL,
+                    cursor_before TEXT, cursor_after TEXT, message TEXT NOT NULL
                 )
-                """
-            )
+            """)
             connection.execute("CREATE INDEX IF NOT EXISTS idx_ingestion_runs_job ON ingestion_job_runs (tenant_id, job_id, started_at DESC)")
             connection.commit()
 
@@ -98,17 +80,10 @@ class SQLiteIngestionScheduler:
             raise ValueError("interval_seconds must be at least 60")
         now = utc_now()
         next_run = start_at or now
-        job = IngestionJob(
-            id=job_id or f"ING-{uuid4().hex[:12].upper()}", tenant_id=tenant_id, connector=connector, source=source,
-            interval_seconds=interval_seconds, enabled=True, cursor=cursor, config=dict(config or {}),
-            last_run_at=None, next_run_at=_iso(next_run), created_at=_iso(now), updated_at=_iso(now),
-        )
+        job = IngestionJob(job_id or f"ING-{uuid4().hex[:12].upper()}", tenant_id, connector, source, interval_seconds, True, cursor, dict(config or {}), None, _iso(next_run), _iso(now), _iso(now))
         import json
         with self._lock, self._connect() as connection:
-            connection.execute(
-                "INSERT INTO ingestion_jobs (job_id, tenant_id, connector, source, interval_seconds, enabled, cursor, config, last_run_at, next_run_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (job.id, job.tenant_id, job.connector, job.source, job.interval_seconds, 1, job.cursor, json.dumps(job.config, ensure_ascii=False, separators=(",", ":")), job.last_run_at, job.next_run_at, job.created_at, job.updated_at),
-            )
+            connection.execute("INSERT INTO ingestion_jobs VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (job.id, job.tenant_id, job.connector, job.source, job.interval_seconds, 1, job.cursor, json.dumps(job.config, ensure_ascii=False, separators=(",", ":")), job.last_run_at, job.next_run_at, job.created_at, job.updated_at))
             connection.commit()
         return job
 
@@ -130,14 +105,14 @@ class SQLiteIngestionScheduler:
         started = started_at or utc_now()
         finished = finished_at or utc_now()
         with self._lock, self._connect() as connection:
-            row = connection.execute("SELECT interval_seconds FROM ingestion_jobs WHERE job_id = ? AND tenant_id = ?", (job_id, tenant_id)).fetchone()
+            row = connection.execute("SELECT interval_seconds, next_run_at FROM ingestion_jobs WHERE job_id = ? AND tenant_id = ?", (job_id, tenant_id)).fetchone()
             if row is None:
                 raise KeyError("Ingestion job not found")
-            next_run = finished + timedelta(seconds=int(row["interval_seconds"]))
-            connection.execute(
-                "INSERT INTO ingestion_job_runs (run_id, job_id, tenant_id, started_at, finished_at, status, cursor_before, cursor_after, message) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (run_id, job_id, tenant_id, _iso(started), _iso(finished), status, cursor_before, cursor_after, message),
-            )
+            planned = _parse(row["next_run_at"])
+            next_run = planned + timedelta(seconds=int(row["interval_seconds"]))
+            while next_run <= finished:
+                next_run += timedelta(seconds=int(row["interval_seconds"]))
+            connection.execute("INSERT INTO ingestion_job_runs (run_id, job_id, tenant_id, started_at, finished_at, status, cursor_before, cursor_after, message) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", (run_id, job_id, tenant_id, _iso(started), _iso(finished), status, cursor_before, cursor_after, message))
             connection.execute("UPDATE ingestion_jobs SET cursor = ?, last_run_at = ?, next_run_at = ?, updated_at = ? WHERE job_id = ? AND tenant_id = ?", (cursor_after, _iso(finished), _iso(next_run), _iso(finished), job_id, tenant_id))
             connection.commit()
         return run_id
@@ -150,9 +125,4 @@ class SQLiteIngestionScheduler:
 
     @staticmethod
     def _row(row: sqlite3.Row, json_module: Any) -> IngestionJob:
-        return IngestionJob(
-            id=row["job_id"], tenant_id=row["tenant_id"], connector=row["connector"], source=row["source"],
-            interval_seconds=int(row["interval_seconds"]), enabled=bool(row["enabled"]), cursor=row["cursor"],
-            config=dict(json_module.loads(row["config"])), last_run_at=row["last_run_at"], next_run_at=row["next_run_at"],
-            created_at=row["created_at"], updated_at=row["updated_at"],
-        )
+        return IngestionJob(row["job_id"], row["tenant_id"], row["connector"], row["source"], int(row["interval_seconds"]), bool(row["enabled"]), row["cursor"], dict(json_module.loads(row["config"])), row["last_run_at"], row["next_run_at"], row["created_at"], row["updated_at"])
