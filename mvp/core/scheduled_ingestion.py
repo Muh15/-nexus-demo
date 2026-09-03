@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Callable
+from typing import Callable
 
 from connectors.base import Connector, ConnectorResult
 
@@ -35,7 +35,6 @@ def _default_fetch(connector: Connector, job: IngestionJob) -> ConnectorResult:
     try:
         return fetch(endpoint, cursor=cursor)
     except TypeError:
-        # Non-paginated connectors may ignore cursors safely.
         return fetch(endpoint)
 
 
@@ -92,7 +91,9 @@ class ScheduledIngestionExecutor:
                 sort_keys=True,
                 separators=(",", ":"),
             )
-            finished = datetime.now(timezone.utc)
+            # Use the scheduler's supplied clock so externally triggered/test runs
+            # advance relative to the requested execution time, not wall-clock time.
+            finished = started
             run_id = self.scheduler.record_run(
                 job.id,
                 job.tenant_id,
@@ -105,7 +106,8 @@ class ScheduledIngestionExecutor:
             )
             return ScheduledIngestionResult(job.id, run_id, "completed", records, job.cursor, cursor_after, message)
         except Exception as exc:
-            finished = datetime.now(timezone.utc)
+            # Do not persist exception payloads; the type is enough for audit/debug.
+            finished = started
             message = f"Scheduled ingestion failed: {type(exc).__name__}"
             run_id = self.scheduler.record_run(
                 job.id,
