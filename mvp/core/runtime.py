@@ -16,6 +16,7 @@ from .read_back_verifier import ReadAfterWriteVerifier, build_read_back_verifier
 from .reasoner import reason_from_evidence
 from .registry import ComponentRegistry
 from .research_executor import ResearchExecutor, business_api_provider, context_provider, http_json_provider
+from .scheduled_ingestion import ScheduledIngestionExecutor
 from .sqlite_store import SQLiteMissionStore
 from .verifier import ActionVerifier, VerificationResult, draft_email_verifier
 
@@ -30,6 +31,7 @@ class MissionRuntime:
     registry: ComponentRegistry
     mission_repository: SQLiteMissionRepository
     ingestion_scheduler: SQLiteIngestionScheduler
+    scheduled_ingestion: ScheduledIngestionExecutor
 
 
 def _build_connector_registry() -> ComponentRegistry:
@@ -177,7 +179,6 @@ def build_runtime() -> MissionRuntime:
         try:
             read_back = build_read_back_verifier_from_env()
         except ValueError:
-            # Invalid external verification configuration must not break the local runtime.
             read_back = None
         for action_type in ("update_crm", "change_purchase_order", "send_email"):
             actions.register(action_type, _real_action_handler(connector, action_endpoint, method))
@@ -186,7 +187,13 @@ def build_runtime() -> MissionRuntime:
             else:
                 verifier.register(action_type, _real_action_verifier)
 
+    repository_path = os.getenv("NEXUS_DB_PATH", "nexus_mvp.sqlite3")
+    repository = SQLiteMissionRepository(SQLiteMissionStore(repository_path))
+    scheduler = SQLiteIngestionScheduler(repository_path)
+    scheduled_ingestion = ScheduledIngestionExecutor(scheduler, registry.connectors)
+
     registry.add_executor("action", actions)
+    registry.add_executor("scheduled_ingestion", scheduled_ingestion)
     registry.add_verifier("action", verifier)
     orchestrator = MissionOrchestrator(
         lambda goal, constraints, context: reason_from_evidence(goal, constraints, context).as_dict(),
@@ -194,10 +201,7 @@ def build_runtime() -> MissionRuntime:
         action_executor=actions,
         verifier=verifier,
     )
-    repository_path = os.getenv("NEXUS_DB_PATH", "nexus_mvp.sqlite3")
-    repository = SQLiteMissionRepository(SQLiteMissionStore(repository_path))
-    scheduler = SQLiteIngestionScheduler(repository_path)
-    return MissionRuntime(orchestrator, actions, verifier, registry, repository, scheduler)
+    return MissionRuntime(orchestrator, actions, verifier, registry, repository, scheduler, scheduled_ingestion)
 
 
 def build_mission_orchestrator() -> MissionOrchestrator:
