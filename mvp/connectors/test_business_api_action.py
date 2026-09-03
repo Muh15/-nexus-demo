@@ -46,6 +46,7 @@ def test_action_rejects_unsupported_method():
 
 def test_action_retries_transient_status(monkeypatch):
     calls = []
+    sleeps = []
 
     class MockClient:
         def __init__(self, **kwargs):
@@ -60,15 +61,62 @@ def test_action_retries_transient_status(monkeypatch):
             return httpx.Response(status, json={"ok": status == 200}, request=httpx.Request(method, url))
 
     monkeypatch.setattr(httpx, "Client", MockClient)
+    monkeypatch.setattr("connectors.business_api_action.time.sleep", lambda delay: sleeps.append(delay))
+    monkeypatch.setattr("connectors.business_api_action.random.random", lambda: 0.0)
     connector = BusinessActionConnector(
-        BusinessActionConfig("crm", "https://crm.example", frozenset({"crm.example"}), max_retries=2, retry_backoff_seconds=0)
+        BusinessActionConfig(
+            "crm",
+            "https://crm.example",
+            frozenset({"crm.example"}),
+            max_retries=2,
+            retry_backoff_seconds=0.25,
+            retry_backoff_max_seconds=2.0,
+            retry_jitter_ratio=0.25,
+        )
     )
     result = connector.execute("POST", "/sync", {"id": 1}, "EXE-RETRY")
 
     assert result["ok"] is True
     assert result["attempts"] == 2
     assert len(calls) == 2
+    assert sleeps == [0.25]
     assert calls[0][2]["headers"]["Idempotency-Key"] == "EXE-RETRY"
+
+
+def test_action_honors_bounded_retry_after(monkeypatch):
+    sleeps = []
+
+    class MockClient:
+        def __init__(self, **kwargs):
+            pass
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return False
+        def request(self, method, url, **kwargs):
+            response = httpx.Response(429, json={"ok": False}, request=httpx.Request(method, url))
+            response.headers["Retry-After"] = "5"
+            return response
+
+    monkeypatch.setattr(httpx, "Client", MockClient)
+    monkeypatch.setattr("connectors.business_api_action.time.sleep", lambda delay: sleeps.append(delay))
+    monkeypatch.setattr("connectors.business_api_action.random.random", lambda: 0.0)
+    connector = BusinessActionConnector(
+        BusinessActionConfig(
+            "crm",
+            "https://crm.example",
+            frozenset({"crm.example"}),
+            max_retries=1,
+            retry_backoff_seconds=0.1,
+            retry_backoff_max_seconds=1.0,
+            retry_jitter_ratio=0.0,
+        )
+    )
+    result = connector.execute("POST", "/sync", {"id": 1}, "EXE-RETRY-AFTER")
+
+    assert result["ok"] is False
+    assert result["attempts"] == 2
+    assert sleeps == [1.0]
 
 
 def test_action_enforces_request_limit():
@@ -77,6 +125,13 @@ def test_action_enforces_request_limit():
     )
     with pytest.raises(ValueError, match="request exceeds"):
         connector.execute("POST", "/sync", {"payload": "too large"}, "EXE-LIMIT")
+
+
+def test_action_rejects_invalid_retry_settings():
+    with pytest.raises(ValueError, match="retry backoff/jitter"):
+        BusinessActionConnector(
+            BusinessActionConfig("crm", "https://crm.example", frozenset({"crm.example"}), retry_backoff_max_seconds=0)
+        )
 
 
 def test_action_requires_execution_id():
