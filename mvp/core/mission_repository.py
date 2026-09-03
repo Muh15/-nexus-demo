@@ -9,7 +9,7 @@ from .sqlite_store import SQLiteMissionStore
 
 @dataclass(slots=True)
 class SQLiteMissionRepository:
-    """Persistence boundary for native MissionState snapshots."""
+    """Persistence boundary for native MissionState snapshots and history."""
 
     store: SQLiteMissionStore
 
@@ -20,6 +20,13 @@ class SQLiteMissionRepository:
             updated_at,
             tenant_id=mission.tenant_id,
         )
+        for event in mission.audit:
+            self.store.append_event(
+                mission_id=mission.id,
+                tenant_id=mission.tenant_id,
+                event=event,
+                recorded_at=str(event.get("timestamp") or updated_at),
+            )
         return mission
 
     def get(self, tenant_id: str, mission_id: str) -> MissionState | None:
@@ -38,6 +45,9 @@ class SQLiteMissionRepository:
             if mission is not None:
                 missions.append(mission)
         return missions
+
+    def history(self, tenant_id: str, mission_id: str) -> list[dict[str, Any]]:
+        return self.store.list_events(mission_id, tenant_id=tenant_id)
 
     def delete(self, tenant_id: str, mission_id: str) -> bool:
         return self.store.delete(mission_id, tenant_id=tenant_id)
