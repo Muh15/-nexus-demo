@@ -33,12 +33,12 @@ class ActionExecutor:
 
     @staticmethod
     def _approval_is_bound(plan: ActionPlan) -> bool:
-        if not plan.payload.get("approval_required"):
+        if not plan.policy.requires_approval:
             return True
         expected = str(plan.payload.get("action_fingerprint", ""))
         actual = action_fingerprint(plan.action_type, plan.payload.get("target"), dict(plan.payload.get("body", {})))
         approved = str(plan.payload.get("approved_fingerprint", ""))
-        return bool(expected and expected == actual and (not approved or approved == actual))
+        return bool(plan.payload.get("approved") and expected and expected == actual and approved == actual)
 
     @staticmethod
     def _separation_is_valid(plan: ActionPlan, actor_subject: str | None) -> bool:
@@ -65,7 +65,7 @@ class ActionExecutor:
             return ActionResult(action_type=plan.action_type, status="blocked", message=authorization.reason)
         if not plan.policy.allowed:
             return ActionResult(action_type=plan.action_type, status="blocked", message=plan.policy.reason)
-        if plan.payload.get("approval_required") and not plan.payload.get("approved"):
+        if plan.policy.requires_approval and not plan.payload.get("approved"):
             return ActionResult(action_type=plan.action_type, status="awaiting_approval", message="Explicit approval is required before execution.")
         if not self._approval_is_bound(plan):
             return ActionResult(action_type=plan.action_type, status="blocked", message="Approval is no longer valid because the action payload changed.")
