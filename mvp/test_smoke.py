@@ -1,17 +1,229 @@
-from __future__ import annotations
+from io import BytesIO
 
-import json
-from pathlib import Path
-
-import pytest
-from fastapi.testclient import TestClient
-
+from connectors.file_connector import FileConnector
 from core.action_executor import ActionExecutor, draft_email_handler
+from core.change_detector import detect_change, detect_record_changes
+from core.context_builder import build_context
+from core.goal_planner import build_goal_plan, classify_goal, parse_goal
+from core.impact import assess_change
+from core.intelligence_graph import IntelligenceGraph
+from core.memory import MemoryStore
+from core.mission_intelligence import MissionIntelligence
+from core.models import BusinessContext, Entity, Evidence, Relationship
+from core.orchestrator import MissionOrchestrator
 from core.planner import action_fingerprint, plan_action
-from core.runtime import build_runtime
+from core.policy import ActionRisk, evaluate_action
+from core.reasoner import reason_from_evidence
+from core.research_executor import ResearchExecutor, context_provider
+from core.research_planner import build_research_plan
+from core.sqlite_store import SQLiteMissionStore
 from core.verifier import ActionVerifier, draft_email_verifier
+from main import reason, sample_signals
 
-# ...
+
+def test_cost_reduction_reasoning():
+    decision = reason("Reduce operating cost by 10% within 90 days", ["Do not change quality", "Do not break active contracts"], sample_signals())
+    assert decision.confidence >= 90
+    assert "تفاوض" in decision.recommended_action
+    assert len(decision.rationale) >= 3
+
+
+def test_signals_cover_multiple_sources():
+    sources = {signal.source.value for signal in sample_signals()}
+    assert {"erp", "contract", "supplier", "market"}.issubset(sources)
+
+
+def test_csv_connector_preserves_provenance():
+    result = FileConnector().ingest("supplier,monthly_spend\nABC,420000\n", filename="spend.csv")
+    assert result.metadata["format"] == "csv"
+    assert result.records[0]["supplier"] == "ABC"
+    assert result.provenance[0]["locator"] == "row:2"
+    assert len(result.metadata["sha256"]) == 64
+
+
+def test_xlsx_connector_reads_sheet_rows():
+    import openpyxl
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "Spend"
+    sheet.append(["supplier", "monthly_spend"])
+    sheet.append(["ABC", 420000])
+    stream = BytesIO()
+    workbook.save(stream)
+    result = FileConnector().ingest(stream.getvalue(), filename="spend.xlsx")
+    assert result.records[0]["supplier"] == "ABC"
+    assert result.provenance[0]["locator"] == "sheet:Spend!row:2"
+
+
+def test_business_context_keeps_relationship_evidence():
+    context = BusinessContext()
+    context.add_entity(Entity("supplier:abc", "supplier", "ABC Industrial"))
+    context.add_entity(Entity("contract:abc", "contract", "ABC-2026"))
+    context.add_evidence(Evidence("ev-1", "contract", "renewal_window", 43, confidence=94))
+    context.link(Relationship("supplier:abc", "governed_by", "contract:abc", 98, ["ev-1"]))
+    assert context.snapshot()["relationships"][0]["evidence_ids"] == ["ev-1"]
+
+
+def test_context_builder_links_supplier_to_contract():
+    context = build_context([{"supplier": "ABC", "contract": "ABC-2026", "monthly_spend": 420000}], source="xlsx")
+    assert "supplier:abc" in context.entities
+    assert "contract:abc-2026" in context.entities
+    assert context.relationships[0].relation == "governed_by"
+    assert context.entities["supplier:abc"].attributes["amounts"] == [420000]
+
+
+def test_action_policy_is_default_deny_for_critical_actions():
+    policy = evaluate_action("transfer_money", amount=1000)
+    assert policy.risk is ActionRisk.CRITICAL
+    assert policy.allowed is False
+    assert policy.requires_approval is True
+
+
+def test_planner_keeps_action_separate_from_decision():
+    plan = plan_action("ابدأ التفاوض مع المورد", target="ABC Industrial")
+    assert plan.action_type == "draft_email"
+    assert plan.policy.allowed is True
+    assert plan.payload["approval_required"] is True
+
+
+def test_memory_is_temporal_and_tenant_isolated():
+    memory = MemoryStore()
+    first = memory.remember("tenant-a", "supplier:abc:price", 100, source="erp")
+    second = memory.remember("tenant-a", "supplier:abc:price", 108, source="erp")
+    memory.remember("tenant-b", "supplier:abc:price", 999, source="erp")
+    assert memory.latest("tenant-a", "supplier:abc:price") is second
+    assert [item.value for item in memory.history("tenant-a", "supplier:abc:price")] == [100, 108]
+    assert memory.snapshot("tenant-b")["facts"]["supplier:abc:price"]["value"] == 999
+    assert first.tenant_id == "tenant-a"
+
+
+def test_change_detector_identifies_new_updated_and_unchanged():
+    memory = MemoryStore()
+    created = detect_change(memory, "tenant-a", "contract:abc:price", 100, source="erp")
+    same = detect_change(memory, "tenant-a", "contract:abc:price", 100, source="erp")
+    updated = detect_change(memory, "tenant-a", "contract:abc:price", 112, source="erp")
+    assert created.kind == "new"
+    assert same.kind == "unchanged"
+    assert updated.kind == "updated"
+    assert updated.previous == 100 and updated.current == 112
+
+
+def test_record_change_detection_uses_deterministic_identity():
+    memory = MemoryStore()
+    rows = [{"supplier": "ABC", "monthly_spend": 420000, "status": "active"}]
+    first = detect_record_changes(memory, "tenant-a", rows, source="xlsx")
+    second = detect_record_changes(memory, "tenant-a", rows, source="xlsx")
+    assert any(item.kind == "new" for item in first)
+    assert all(item.kind == "unchanged" for item in second)
+
+
+def test_goal_planner_is_domain_agnostic_and_prioritizes_research_needs():
+    goal = parse_goal("Reduce operating cost by 10% within 90 days", ["Do not change quality", "Do not break active contracts"])
+    plan = build_goal_plan(goal)
+    assert goal.target_value == 10 and goal.target_unit == "%" and goal.horizon == "90 days"
+    assert plan.profile.key == "cost"
+    assert {"operations", "suppliers", "contracts"}.issubset(plan.domains())
+
+
+def test_goal_classifier_is_shared_and_structured():
+    revenue = classify_goal("Increase sales revenue by 15%")
+    risk = classify_goal("Reduce compliance risk")
+    customer = classify_goal("تحسين تجربة العملاء")
+    supplier = classify_goal("تحسين شروط الموردين")
+    assert revenue.key == "revenue" and "sales_pipeline" in revenue.evidence_domains
+    assert risk.action_posture == "treat_before_change"
+    assert customer.key == "customer"
+    assert supplier.key == "supplier" and "contracts" in supplier.evidence_domains
+
+
+def test_goal_planner_maps_customer_goal_to_customer_evidence():
+    plan = build_goal_plan(parse_goal("تحسين تجربة العملاء"))
+    assert plan.profile.key == "customer"
+    assert plan.domains() == ["customers", "sales_pipeline"]
+
+
+def test_intelligence_graph_projects_context_without_owning_source_data():
+    context = BusinessContext()
+    context.add_entity(Entity("supplier:abc", "supplier", "ABC Industrial"))
+    context.add_entity(Entity("contract:abc", "contract", "ABC-2026"))
+    context.add_evidence(Evidence("ev-1", "contract", "renewal_window", 43, confidence=94))
+    context.link(Relationship("supplier:abc", "governed_by", "contract:abc", 98, ["ev-1"]))
+    graph = IntelligenceGraph.from_context(context)
+    assert graph.neighbors("supplier:abc", relation="governed_by")[0].id == "contract:abc"
+    assert graph.supporting_evidence("supplier:abc", context.evidence.values())[0].id == "ev-1"
+
+
+def test_impact_assessment_prioritizes_goal_relevant_updates():
+    memory = MemoryStore()
+    change = detect_change(memory, "tenant-a", "supplier:abc:monthly_spend", 420000, source="erp")
+    plan = build_goal_plan(parse_goal("Reduce operating cost by 10% within 90 days"))
+    assessment = assess_change(change, plan.goal, plan.research_needs)
+    assert assessment.relevant is True and assessment.score >= 55
+
+
+def test_mission_intelligence_combines_memory_and_goal_plan():
+    intelligence = MissionIntelligence()
+    rows = [{"supplier": "ABC", "monthly_spend": 420000, "status": "active"}]
+    first_plan, first_changes, first_assessments = intelligence.prepare(tenant_id="tenant-a", goal_text="Reduce operating cost by 10% within 90 days", records=rows, source="xlsx")
+    second_plan, second_changes, second_assessments = intelligence.prepare(tenant_id="tenant-a", goal_text="Reduce operating cost by 10% within 90 days", records=rows, source="xlsx")
+    assert "suppliers" in first_plan.domains()
+    assert any(item.kind == "new" for item in first_changes)
+    assert all(item.kind == "unchanged" for item in second_changes)
+    assert second_plan.goal.objective == first_plan.goal.objective
+    assert len(first_assessments) == len(second_assessments)
+
+
+def test_adaptive_research_planner_finds_missing_domains():
+    goal_plan = build_goal_plan(parse_goal("Reduce operating cost by 10% within 90 days"))
+    context = build_context([{"supplier": "ABC", "monthly_spend": 420000}], source="erp")
+    research = build_research_plan(goal_plan, context)
+    assert research.tasks and any(task.domain == "contracts" for task in research.tasks)
+    assert all(task.connector for task in research.tasks)
+    assert research.tasks == sorted(research.tasks, key=lambda item: (-item.priority, item.domain))
+
+
+def test_research_executor_collects_evidence_through_replaceable_provider():
+    context = build_context([{"supplier": "ABC", "monthly_spend": 420000}], source="erp")
+    plan = build_research_plan(build_goal_plan(parse_goal("Reduce operating cost by 10% within 90 days")), context)
+    executor = ResearchExecutor()
+    executor.register("contract", context_provider("contract", "contract_api"))
+    plan.tasks = [task for task in plan.tasks if task.domain == "contracts"]
+    results = executor.execute(plan, context)
+    assert len(results) == 1 and results[0].status == "completed"
+    assert results[0].evidence and results[0].evidence[0].source == "contract_api"
+
+
+def test_evidence_reasoner_changes_confidence_with_evidence_quality():
+    context = BusinessContext()
+    context.add_evidence(Evidence("strong", "contract", "renewal_window", 43, confidence=96))
+    decision = reason_from_evidence("Reduce operating cost by 10%", [], context)
+    assert decision.evidence_count == 1
+    assert decision.evidence_ids == ["strong"]
+    assert decision.evidence_confidence == 96
+    assert decision.confidence == 95
+
+
+def test_goal_profiles_produce_distinct_safe_decisions():
+    context = BusinessContext()
+    context.add_evidence(Evidence("rev-1", "crm", "pipeline", "strong", confidence=88))
+    revenue = reason_from_evidence("Increase sales revenue by 15%", [], context)
+    risk = reason_from_evidence("Reduce compliance risk", [], context)
+    customer = reason_from_evidence("تحسين تجربة العملاء", [], context)
+    assert "مبيعات" in revenue.recommended_action
+    assert "مخاطر" in risk.recommended_action
+    assert "العملاء" in customer.recommended_action
+    assert revenue.title != risk.title != customer.title
+
+
+def test_supplier_goal_profile_works_in_arabic_and_english():
+    context = BusinessContext()
+    context.add_evidence(Evidence("sup-1", "supplier", "capacity", "25%", confidence=82))
+    arabic = reason_from_evidence("تحسين شروط الموردين", [], context)
+    english = reason_from_evidence("Improve supplier terms", [], context)
+    assert arabic.title.startswith("قرار الموردين")
+    assert "مورد" in arabic.recommended_action
+    assert english.title.startswith("قرار الموردين")
+
 
 def test_action_executor_blocks_until_approval_and_then_executes_safe_draft():
     plan = plan_action("إعداد مسودة تفاوض", target="ABC Industrial")
@@ -35,4 +247,39 @@ def test_action_verifier_confirms_safe_draft_execution():
     assert verification.details["sent"] is False
 
 
-# The remaining smoke tests are defined elsewhere in the file.
+def test_orchestrator_runs_full_safe_mission_lifecycle():
+    def fake_reasoner(goal, constraints, context):
+        return reason_from_evidence(goal, constraints, context).as_dict()
+
+    research_executor = ResearchExecutor({"contract": context_provider("contract", "contract_api")})
+    action_executor = ActionExecutor({"draft_email": draft_email_handler})
+    verifier = ActionVerifier({"draft_email": draft_email_verifier})
+    orchestrator = MissionOrchestrator(fake_reasoner, research_executor=research_executor, action_executor=action_executor, verifier=verifier)
+    mission = orchestrator.create(tenant_id="tenant-a", goal="Reduce operating cost by 10% within 90 days", constraints=["Do not change quality"], records=[{"supplier": "ABC", "monthly_spend": 420000}], source="xlsx")
+    orchestrator.research(mission)
+    orchestrator.decide(mission)
+    orchestrator.plan(mission, target="ABC Industrial")
+    orchestrator.approve(mission)
+    orchestrator.execute(mission)
+    orchestrator.verify(mission)
+    assert mission.stage == "verified"
+    assert mission.action_result is not None and mission.action_result.status == "completed"
+    assert mission.verification is not None and mission.verification.status == "verified"
+    assert {event["stage"] for event in mission.audit} >= {"observe", "understand", "researching", "researched", "reason", "decide", "action_planned", "approved", "executed", "verified"}
+
+
+def test_sqlite_mission_store_persists_and_reloads_payload(tmp_path):
+    store = SQLiteMissionStore(tmp_path / "nexus.sqlite3")
+    payload = {
+        "id": "NXS-123",
+        "stage": "verified",
+        "goal": "Reduce operating cost by 10%",
+        "audit": [{"stage": "verified", "message": "done"}],
+    }
+    store.save("NXS-123", payload, "2026-09-02T12:00:00+00:00")
+
+    reloaded = SQLiteMissionStore(tmp_path / "nexus.sqlite3")
+    assert reloaded.get("NXS-123") == payload
+    assert reloaded.list_ids() == ["NXS-123"]
+    assert reloaded.delete("NXS-123") is True
+    assert reloaded.get("NXS-123") is None
