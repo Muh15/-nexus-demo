@@ -38,6 +38,22 @@ def test_action_rejects_unscoped_host():
         BusinessActionConnector(BusinessActionConfig("crm", "https://evil.example", frozenset({"crm.example"})))
 
 
+def test_action_rejects_credential_bearing_base_url():
+    with pytest.raises(ValueError, match="credentials"):
+        BusinessActionConnector(BusinessActionConfig("crm", "https://user:secret@crm.example", frozenset({"crm.example"})))
+
+
+def test_action_rejects_query_bearing_base_url():
+    with pytest.raises(ValueError, match="query parameters"):
+        BusinessActionConnector(BusinessActionConfig("crm", "https://crm.example/api?token=secret", frozenset({"crm.example"})))
+
+
+def test_action_rejects_query_bearing_endpoint():
+    connector = BusinessActionConnector(BusinessActionConfig("crm", "https://crm.example", frozenset({"crm.example"})))
+    with pytest.raises(ValueError, match="query parameters"):
+        connector.execute("POST", "/sync?token=secret", {}, "EXE-QUERY")
+
+
 def test_action_rejects_unsupported_method():
     connector = BusinessActionConnector(BusinessActionConfig("crm", "https://crm.example", frozenset({"crm.example"})))
     with pytest.raises(ValueError, match="POST and PATCH"):
@@ -63,17 +79,7 @@ def test_action_retries_transient_status(monkeypatch):
     monkeypatch.setattr(httpx, "Client", MockClient)
     monkeypatch.setattr("connectors.business_api_action.time.sleep", lambda delay: sleeps.append(delay))
     monkeypatch.setattr("connectors.business_api_action.random.random", lambda: 0.0)
-    connector = BusinessActionConnector(
-        BusinessActionConfig(
-            "crm",
-            "https://crm.example",
-            frozenset({"crm.example"}),
-            max_retries=2,
-            retry_backoff_seconds=0.25,
-            retry_backoff_max_seconds=2.0,
-            retry_jitter_ratio=0.25,
-        )
-    )
+    connector = BusinessActionConnector(BusinessActionConfig("crm", "https://crm.example", frozenset({"crm.example"}), max_retries=2, retry_backoff_seconds=0.25, retry_backoff_max_seconds=2.0, retry_jitter_ratio=0.25))
     result = connector.execute("POST", "/sync", {"id": 1}, "EXE-RETRY")
 
     assert result["ok"] is True
@@ -101,17 +107,7 @@ def test_action_honors_bounded_retry_after(monkeypatch):
     monkeypatch.setattr(httpx, "Client", MockClient)
     monkeypatch.setattr("connectors.business_api_action.time.sleep", lambda delay: sleeps.append(delay))
     monkeypatch.setattr("connectors.business_api_action.random.random", lambda: 0.0)
-    connector = BusinessActionConnector(
-        BusinessActionConfig(
-            "crm",
-            "https://crm.example",
-            frozenset({"crm.example"}),
-            max_retries=1,
-            retry_backoff_seconds=0.1,
-            retry_backoff_max_seconds=1.0,
-            retry_jitter_ratio=0.0,
-        )
-    )
+    connector = BusinessActionConnector(BusinessActionConfig("crm", "https://crm.example", frozenset({"crm.example"}), max_retries=1, retry_backoff_seconds=0.1, retry_backoff_max_seconds=1.0, retry_jitter_ratio=0.0))
     result = connector.execute("POST", "/sync", {"id": 1}, "EXE-RETRY-AFTER")
 
     assert result["ok"] is False
@@ -120,18 +116,14 @@ def test_action_honors_bounded_retry_after(monkeypatch):
 
 
 def test_action_enforces_request_limit():
-    connector = BusinessActionConnector(
-        BusinessActionConfig("crm", "https://crm.example", frozenset({"crm.example"}), max_request_bytes=10)
-    )
+    connector = BusinessActionConnector(BusinessActionConfig("crm", "https://crm.example", frozenset({"crm.example"}), max_request_bytes=10))
     with pytest.raises(ValueError, match="request exceeds"):
         connector.execute("POST", "/sync", {"payload": "too large"}, "EXE-LIMIT")
 
 
 def test_action_rejects_invalid_retry_settings():
     with pytest.raises(ValueError, match="retry backoff/jitter"):
-        BusinessActionConnector(
-            BusinessActionConfig("crm", "https://crm.example", frozenset({"crm.example"}), retry_backoff_max_seconds=0)
-        )
+        BusinessActionConnector(BusinessActionConfig("crm", "https://crm.example", frozenset({"crm.example"}), retry_backoff_max_seconds=0))
 
 
 def test_action_requires_execution_id():
