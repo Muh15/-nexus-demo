@@ -57,6 +57,23 @@ class SQLiteMissionStore:
             connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_mission_events_tenant_mission ON mission_events (tenant_id, mission_id, event_id)"
             )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS action_executions (
+                    execution_id TEXT PRIMARY KEY,
+                    tenant_id TEXT NOT NULL,
+                    action_type TEXT NOT NULL,
+                    action_fingerprint TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    result_json TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+                """
+            )
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_action_executions_tenant_created ON action_executions (tenant_id, created_at DESC)"
+            )
             connection.commit()
 
     def save(self, mission_id: str, payload: dict[str, Any], updated_at: str, tenant_id: str = DEFAULT_TENANT) -> None:
@@ -109,6 +126,65 @@ class SQLiteMissionStore:
                 VALUES (?, ?, ?, ?, ?)
                 """,
                 (mission_id, tenant_id, event_hash, event_json, recorded_at),
+            )
+            connection.commit()
+            return cursor.rowcount > 0
+
+    def claim_action_execution(
+        self,
+        *,
+        execution_id: str,
+        tenant_id: str,
+        action_type: str,
+        action_fingerprint: str,
+        created_at: str,
+    ) -> tuple[str, dict[str, Any] | None]:
+        """Atomically claim an execution id or return its prior state/result."""
+        with self._lock, self._connect() as connection:
+            existing = connection.execute(
+                "SELECT tenant_id, action_type, action_fingerprint, status, result_json FROM action_executions WHERE execution_id = ?",
+                (execution_id,),
+            ).fetchone()
+            if existing is None:
+                connection.execute(
+                    """
+                    INSERT INTO action_executions
+                        (execution_id, tenant_id, action_type, action_fingerprint, status, result_json, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, 'pending', NULL, ?, ?)
+                    """,
+                    (execution_id, tenant_id, action_type, action_fingerprint, created_at, created_at),
+                )
+                connection.commit()
+                return "claimed", None
+            if (
+                existing["tenant_id"] != tenant_id
+                or existing["action_type"] != action_type
+                or existing["action_fingerprint"] != action_fingerprint
+            ):
+                return "conflict", None
+            if existing["status"] == "completed" and existing["result_json"]:
+                return "completed", json.loads(existing["result_json"])
+            return "in_progress", None
+
+    def complete_action_execution(self, *, execution_id: str, tenant_id: str, result: dict[str, Any], updated_at: str) -> bool:
+        serialized = json.dumps(result, ensure_ascii=False, separators=(",", ":"), default=str)
+        with self._lock, self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE action_executions
+                SET status = 'completed', result_json = ?, updated_at = ?
+                WHERE execution_id = ? AND tenant_id = ? AND status = 'pending'
+                """,
+                (serialized, updated_at, execution_id, tenant_id),
+            )
+            connection.commit()
+            return cursor.rowcount > 0
+
+    def release_action_execution(self, *, execution_id: str, tenant_id: str) -> bool:
+        with self._lock, self._connect() as connection:
+            cursor = connection.execute(
+                "DELETE FROM action_executions WHERE execution_id = ? AND tenant_id = ? AND status = 'pending'",
+                (execution_id, tenant_id),
             )
             connection.commit()
             return cursor.rowcount > 0
