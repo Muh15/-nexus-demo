@@ -47,10 +47,12 @@ def authorize_execution(
     roles = _EXECUTION_ROLES.get(normalized)
     if roles is None:
         return AuthorizationResult(AuthorizationDecision.DENY, "Action type is not authorized for execution.")
+    # Tenant context is security-critical: when strict auth is enabled, both sides
+    # must be present. In every mode, a supplied context must match exactly.
     if tenant_id and plan_tenant_id and tenant_id != plan_tenant_id:
         return AuthorizationResult(AuthorizationDecision.DENY, "Action plan tenant does not match the execution tenant.")
-    if _strict_role_mode() and (not tenant_id or not actor_role):
-        return AuthorizationResult(AuthorizationDecision.DENY, "Authenticated tenant and role are required for execution.")
+    if _strict_role_mode() and (not tenant_id or not plan_tenant_id or not actor_role):
+        return AuthorizationResult(AuthorizationDecision.DENY, "Authenticated tenant, plan tenant, and role are required for execution.")
     if actor_role is not None and actor_role.strip().lower() not in roles:
         return AuthorizationResult(AuthorizationDecision.DENY, f"Role '{actor_role}' is not authorized to execute this action.")
     return AuthorizationResult(AuthorizationDecision.ALLOW, "Execution is authorized for the current principal and tenant.")
