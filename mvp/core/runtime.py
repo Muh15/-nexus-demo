@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from typing import Any
 
 from connectors.business_api_action import BusinessActionConfig, BusinessActionConnector
 from connectors.business_api_connector import BusinessApiConfig, BusinessApiConnector
@@ -32,6 +33,59 @@ class MissionRuntime:
     mission_repository: SQLiteMissionRepository
     ingestion_scheduler: SQLiteIngestionScheduler
     scheduled_ingestion: ScheduledIngestionExecutor
+
+
+_SENSITIVE_KEY_PARTS = (
+    "authorization",
+    "password",
+    "passwd",
+    "secret",
+    "token",
+    "api_key",
+    "apikey",
+    "credential",
+    "private_key",
+)
+
+
+def _is_sensitive_key(key: object) -> bool:
+    normalized = str(key).strip().lower().replace("-", "_")
+    return any(part in normalized for part in _SENSITIVE_KEY_PARTS)
+
+
+def _redact(value: Any) -> Any:
+    """Redact secret-bearing mapping fields before action results reach audit/UI layers."""
+    if isinstance(value, dict):
+        return {
+            key: "[REDACTED]" if _is_sensitive_key(key) else _redact(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_redact(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_redact(item) for item in value)
+    return value
+
+
+def _redact_configured_secret(value: Any, secret: str | None) -> Any:
+    """Remove an exact configured credential even if it appears in an otherwise safe string field."""
+    if not secret:
+        return value
+    if isinstance(value, dict):
+        return {key: _redact_configured_secret(item, secret) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_redact_configured_secret(item, secret) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_redact_configured_secret(item, secret) for item in value)
+    if isinstance(value, str):
+        return value.replace(secret, "[REDACTED]")
+    return value
+
+
+def _safe_action_output(value: Any, token_env: str | None = None) -> Any:
+    safe = _redact(value)
+    secret = os.getenv(token_env) if token_env else None
+    return _redact_configured_secret(safe, secret)
 
 
 def _build_connector_registry() -> ComponentRegistry:
@@ -89,19 +143,20 @@ def _real_action_handler(connector: BusinessActionConnector, endpoint: str, meth
                 message=f"External action transport failed: {type(exc).__name__}",
                 output={
                     "error": type(exc).__name__,
-                    "target": plan.payload.get("target"),
-                    "request_body": request_body,
+                    "target": _safe_action_output(plan.payload.get("target"), connector.config.token_env),
+                    "request_body": _safe_action_output(request_body, connector.config.token_env),
                 },
                 execution_id=execution_id,
             )
         status = "completed" if result["ok"] else "failed"
+        safe_result = _safe_action_output(result, connector.config.token_env)
         return ActionResult(
             action_type=plan.action_type,
             status=status,
             output={
-                **result,
-                "target": plan.payload.get("target"),
-                "request_body": request_body,
+                **safe_result,
+                "target": _safe_action_output(plan.payload.get("target"), connector.config.token_env),
+                "request_body": _safe_action_output(request_body, connector.config.token_env),
             },
             message="External business action completed." if result["ok"] else "External business API rejected the action.",
             execution_id=execution_id,
