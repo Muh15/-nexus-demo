@@ -30,13 +30,11 @@ class OIDCConfig:
     algorithms: tuple[str, ...] = ("RS256",)
 
 
-class OIDCJWTProvider:
-    """Validate an OIDC/JWT bearer credential against an issuer's JWKS.
+_ALLOWED_JWT_ALGORITHMS = frozenset({"RS256", "RS384", "RS512", "ES256", "ES384", "ES512"})
 
-    Network access is limited to the explicitly configured JWKS URL. Issuer,
-    audience and algorithm are validated by PyJWT; claims are mapped only from
-    configured claim names and never from caller-supplied headers.
-    """
+
+class OIDCJWTProvider:
+    """Validate an OIDC/JWT bearer credential against an issuer's JWKS."""
 
     def __init__(self, config: OIDCConfig) -> None:
         if not config.issuer.strip() or not config.audience.strip() or not config.jwks_url.strip():
@@ -45,8 +43,11 @@ class OIDCJWTProvider:
             raise ValueError("OIDC JWKS URL must use HTTPS")
         if not config.algorithms:
             raise ValueError("at least one JWT algorithm is required")
-        self._config = config
-        self._jwk_client = PyJWKClient(config.jwks_url)
+        normalized = tuple(item.strip().upper() for item in config.algorithms if item.strip())
+        if not normalized or any(item not in _ALLOWED_JWT_ALGORITHMS for item in normalized):
+            raise ValueError("OIDC JWT algorithms must be approved asymmetric algorithms")
+        self._config = OIDCConfig(config.issuer.strip(), config.audience.strip(), config.jwks_url.strip(), normalized)
+        self._jwk_client = PyJWKClient(self._config.jwks_url, cache_jwk_set=True, lifespan=300)
 
     def authenticate(self, credential: str) -> Principal:
         token = credential.strip()
@@ -78,11 +79,7 @@ class OIDCJWTProvider:
 
 
 def build_principal_provider() -> PrincipalProvider:
-    """Build the configured enterprise authentication provider.
-
-    Modes: ``api_key`` (prototype compatibility) or ``oidc``. Enterprise
-    mode fails closed when OIDC configuration is incomplete.
-    """
+    """Build the configured enterprise authentication provider."""
     mode = os.getenv("NEXUS_AUTH_MODE", "api_key").strip().lower()
     if mode == "api_key":
         return ApiKeyProvider()
@@ -93,8 +90,6 @@ def build_principal_provider() -> PrincipalProvider:
             issuer=os.getenv("NEXUS_OIDC_ISSUER", ""),
             audience=os.getenv("NEXUS_OIDC_AUDIENCE", ""),
             jwks_url=os.getenv("NEXUS_OIDC_JWKS_URL", ""),
-            algorithms=tuple(
-                item.strip() for item in os.getenv("NEXUS_OIDC_ALGORITHMS", "RS256").split(",") if item.strip()
-            ),
+            algorithms=tuple(item.strip() for item in os.getenv("NEXUS_OIDC_ALGORITHMS", "RS256").split(",") if item.strip()),
         )
     )
