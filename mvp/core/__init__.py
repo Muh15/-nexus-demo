@@ -2,6 +2,7 @@
 
 from .action_executor import ActionExecutor, ActionResult, draft_email_handler
 from .auth import ActorRole, AuthenticationError, Principal, authenticate_api_key, configured_principals
+from .enterprise_auth import ApiKeyProvider, OIDCConfig, OIDCJWTProvider, PrincipalProvider, build_principal_provider
 from .goal_planner import Goal, GoalPlan, GoalProfile, ResearchNeed, build_goal_plan, classify_goal, parse_goal
 from .impact import ImpactAssessment, assess_change
 from .ingestion_scheduler import IngestionJob, SQLiteIngestionScheduler
@@ -29,4 +30,5 @@ __all__ = [
     "MissionOrchestrator", "MissionState", "mission_from_snapshot", "InMemoryMissionRepository",
     "MissionRuntime", "build_runtime", "build_mission_orchestrator",
     "ActorRole", "Principal", "AuthenticationError", "authenticate_api_key", "configured_principals",
+    "PrincipalProvider", "ApiKeyProvider", "OIDCConfig", "OIDCJWTProvider", "build_principal_provider",
 ]
