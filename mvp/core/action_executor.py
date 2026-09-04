@@ -72,7 +72,7 @@ class ActionExecutor:
         if plan.policy.requires_approval and not plan.payload.get("approved"):
             return ActionResult(action_type=plan.action_type, status="awaiting_approval", message="Explicit approval is required before execution.")
         if not self._approval_is_bound(plan):
-            return ActionResult(action_type=plan.action_type, status="blocked", message="Approval is no longer valid because the action payload or approval requirement changed; fingerprint must match.")
+            return ActionResult(action_type=plan.action_type, status="blocked", message="Approval is no longer valid: payload changed or approval requirement changed; fingerprint must match.")
         if not self._separation_is_valid(plan, actor_subject):
             return ActionResult(action_type=plan.action_type, status="blocked", message="Execution requires a different principal from the approver.")
         handler = self._handlers.get(plan.action_type)
