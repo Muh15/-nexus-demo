@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import json
+import socket
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlparse
@@ -19,15 +21,11 @@ class HttpJsonConfig:
     timeout_seconds: float = 10.0
     max_response_bytes: int = 2_000_000
     follow_redirects: bool = False
+    allow_private_ips: bool = False
 
 
 class HttpJsonConnector(Connector):
-    """Fetch JSON from an explicitly allow-listed HTTP(S) endpoint.
-
-    Transport and validation live here; business reasoning stays in the core.
-    Credentials, when needed, should be supplied by the caller/runtime rather
-    than hard-coded into the connector.
-    """
+    """Fetch JSON from an explicitly allow-listed HTTP(S) endpoint."""
 
     name = "http_json"
 
@@ -90,12 +88,46 @@ class HttpJsonConnector(Connector):
         parsed = urlparse(url)
         if parsed.scheme not in {"http", "https"}:
             raise ValueError("only http and https URLs are allowed")
+        if parsed.username or parsed.password or parsed.query or parsed.fragment:
+            raise ValueError("URL must not contain credentials, query parameters, or fragments")
         if not parsed.hostname:
             raise ValueError("URL must include a hostname")
         host = parsed.hostname.lower().rstrip(".")
         allowed = {item.lower().rstrip(".") for item in self.config.allowed_hosts}
         if host not in allowed:
             raise ValueError("URL host is not allow-listed")
+        try:
+            literal = ipaddress.ip_address(host)
+        except ValueError:
+            literal = None
+        if literal is not None:
+            self._reject_unsafe_ip(literal)
+            return
+        if not self.config.allow_private_ips:
+            try:
+                addresses = {
+                    ipaddress.ip_address(info[4][0])
+                    for info in socket.getaddrinfo(host, parsed.port or (443 if parsed.scheme == "https" else 80), type=socket.SOCK_STREAM)
+                }
+            except socket.gaierror as exc:
+                raise ValueError(f"unable to resolve URL host: {host}") from exc
+            if not addresses:
+                raise ValueError(f"URL host did not resolve: {host}")
+            for address in addresses:
+                self._reject_unsafe_ip(address)
+
+    def _reject_unsafe_ip(self, address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> None:
+        if self.config.allow_private_ips:
+            return
+        if (
+            address.is_private
+            or address.is_loopback
+            or address.is_link_local
+            or address.is_reserved
+            or address.is_multicast
+            or address.is_unspecified
+        ):
+            raise ValueError("URL host resolves to a non-public IP address")
 
     @staticmethod
     def _records(data: Any) -> list[dict[str, Any]]:
