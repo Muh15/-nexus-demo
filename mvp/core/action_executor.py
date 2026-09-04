@@ -33,7 +33,11 @@ class ActionExecutor:
 
     @staticmethod
     def _approval_is_bound(plan: ActionPlan) -> bool:
-        if not plan.policy.requires_approval:
+        required = bool(plan.policy.requires_approval)
+        payload_required = bool(plan.payload.get("approval_required"))
+        if payload_required != required:
+            return False
+        if not required:
             return True
         expected = str(plan.payload.get("action_fingerprint", ""))
         actual = action_fingerprint(plan.action_type, plan.payload.get("target"), dict(plan.payload.get("body", {})))
@@ -68,7 +72,7 @@ class ActionExecutor:
         if plan.policy.requires_approval and not plan.payload.get("approved"):
             return ActionResult(action_type=plan.action_type, status="awaiting_approval", message="Explicit approval is required before execution.")
         if not self._approval_is_bound(plan):
-            return ActionResult(action_type=plan.action_type, status="blocked", message="Approval is no longer valid because the action payload changed.")
+            return ActionResult(action_type=plan.action_type, status="blocked", message="Approval is no longer valid because the action payload or approval requirement changed; fingerprint must match.")
         if not self._separation_is_valid(plan, actor_subject):
             return ActionResult(action_type=plan.action_type, status="blocked", message="Execution requires a different principal from the approver.")
         handler = self._handlers.get(plan.action_type)
