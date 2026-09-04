@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 
 from connectors.normalize import normalize_records
 from core.auth import ActorRole, AuthenticationError, Principal, authenticate_api_key
+from core.enterprise_auth import build_principal_provider
 from core.models import BusinessContext, Evidence
 from core.reasoner import reason_from_evidence
 from core.runtime import MissionRuntime, build_runtime
@@ -35,10 +36,19 @@ DEFAULT_TENANT="demo-tenant"; DEFAULT_ROLE=ActorRole.ADMIN; TENANT_PATTERN=re.co
 
 def utc_now(): return datetime.now(timezone.utc).isoformat()
 def _strict_auth_enabled(): return os.getenv("NEXUS_AUTH_REQUIRED","false").strip().lower() in {"1","true","yes","on"}
-def principal_context(x_api_key: str|None=Header(default=None,alias="X-API-Key"), x_tenant_id: str|None=Header(default=None,alias="X-Tenant-ID"), x_actor_role: str|None=Header(default=None,alias="X-Actor-Role")) -> Principal:
+def _auth_mode(): return os.getenv("NEXUS_AUTH_MODE","api_key").strip().lower()
+def _bearer_token(authorization: str|None) -> str:
+    value=(authorization or "").strip()
+    scheme, _, credential=value.partition(" ")
+    if scheme.lower()!="bearer" or not credential.strip(): raise AuthenticationError("Bearer token is required")
+    return credential.strip()
+def principal_context(x_api_key: str|None=Header(default=None,alias="X-API-Key"), authorization: str|None=Header(default=None,alias="Authorization"), x_tenant_id: str|None=Header(default=None,alias="X-Tenant-ID"), x_actor_role: str|None=Header(default=None,alias="X-Actor-Role")) -> Principal:
     if _strict_auth_enabled():
-        try: principal=authenticate_api_key(x_api_key or "")
-        except AuthenticationError as exc: raise HTTPException(401, str(exc)) from exc
+        try:
+            if _auth_mode()=="oidc": principal=build_principal_provider().authenticate(_bearer_token(authorization))
+            elif _auth_mode()=="api_key": principal=authenticate_api_key(x_api_key or "")
+            else: raise AuthenticationError("Unsupported authentication mode")
+        except (AuthenticationError, ValueError) as exc: raise HTTPException(401, "Authentication failed") from exc
         if x_tenant_id and x_tenant_id.strip()!=principal.tenant_id: raise HTTPException(403,"Tenant does not match authenticated principal")
         if x_actor_role and x_actor_role.strip().lower()!=principal.role.value: raise HTTPException(403,"Role does not match authenticated principal")
         return principal
@@ -97,7 +107,7 @@ def health(): return {"status":"ok","service":"nexus-mvp","version":"1.0.0"}
 @app.get("/api/runtime")
 def runtime_info(): return {"registry":RUNTIME.registry.describe()}
 @app.get("/api/auth/mode")
-def auth_mode(): return {"required":_strict_auth_enabled(),"header":"X-API-Key"}
+def auth_mode(): return {"required":_strict_auth_enabled(),"mode":_auth_mode(),"header":"Authorization" if _auth_mode()=="oidc" else "X-API-Key"}
 @app.get("/api/context")
 def context(tenant_id:str=Depends(tenant_context),role:ActorRole=Depends(role_context)):
     require_role(role,set(ActorRole)); return {**SAMPLE_CONTEXT,"tenant_id":tenant_id,"ingested_records":len(INGESTED_DATA.get(tenant_id,[])),"persisted_missions":len(MISSION_REPOSITORY.list_by_tenant(tenant_id))}
