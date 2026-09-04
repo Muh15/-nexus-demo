@@ -183,6 +183,11 @@ def _real_action_verifier(result: ActionResult) -> VerificationResult:
 
 
 def build_runtime() -> MissionRuntime:
+    repository_path = os.getenv("NEXUS_DB_PATH", "nexus_mvp.sqlite3")
+    store = SQLiteMissionStore(repository_path)
+    repository = SQLiteMissionRepository(store)
+    scheduler = SQLiteIngestionScheduler(repository_path)
+
     registry = _build_connector_registry()
     research = ResearchExecutor()
     for connector, source in {
@@ -209,7 +214,7 @@ def build_runtime() -> MissionRuntime:
         research.register("web_http", http_json_provider(http_connector, http_research_url, confidence=88))
         research._providers["web"] = http_json_provider(http_connector, http_research_url, confidence=88)
 
-    actions = ActionExecutor({"draft_email": draft_email_handler})
+    actions = ActionExecutor({"draft_email": draft_email_handler}, execution_store=store)
     verifier = ActionVerifier({"draft_email": draft_email_verifier})
 
     action_url = os.getenv("NEXUS_ACTION_URL", "").strip()
@@ -242,9 +247,6 @@ def build_runtime() -> MissionRuntime:
             else:
                 verifier.register(action_type, _real_action_verifier)
 
-    repository_path = os.getenv("NEXUS_DB_PATH", "nexus_mvp.sqlite3")
-    repository = SQLiteMissionRepository(SQLiteMissionStore(repository_path))
-    scheduler = SQLiteIngestionScheduler(repository_path)
     scheduled_ingestion = ScheduledIngestionExecutor(scheduler, registry.connectors)
 
     registry.add_executor("action", actions)
