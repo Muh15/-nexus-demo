@@ -36,6 +36,8 @@ class BusinessActionConnector:
             raise ValueError("base_url must be an http(s) URL")
         if parsed.hostname not in config.allowed_hosts:
             raise ValueError(f"base_url host is not allow-listed: {parsed.hostname}")
+        if parsed.username or parsed.password or parsed.query or parsed.fragment:
+            raise ValueError("base_url must not contain credentials, query parameters, or fragments")
         if config.max_request_bytes <= 0 or config.max_response_bytes <= 0:
             raise ValueError("request/response limits must be positive")
         if config.max_retries < 0 or config.retry_backoff_seconds < 0:
@@ -46,15 +48,14 @@ class BusinessActionConnector:
     def _url(self, endpoint: str) -> str:
         url = urljoin(self.config.base_url.rstrip("/") + "/", endpoint.lstrip("/"))
         parsed = urlparse(url)
-        if parsed.hostname not in self.config.allowed_hosts:
+        if parsed.scheme not in {"http", "https"} or parsed.hostname not in self.config.allowed_hosts:
             raise ValueError(f"action host is not allow-listed: {parsed.hostname}")
+        if parsed.username or parsed.password or parsed.query or parsed.fragment:
+            raise ValueError("action URL must not contain credentials, query parameters, or fragments")
         return url
 
     def _retry_delay(self, attempt: int, response: httpx.Response | None = None) -> float:
-        base = min(
-            self.config.retry_backoff_seconds * (2**attempt),
-            self.config.retry_backoff_max_seconds,
-        )
+        base = min(self.config.retry_backoff_seconds * (2**attempt), self.config.retry_backoff_max_seconds)
         jitter = base * self.config.retry_jitter_ratio * random.random()
         retry_after = 0.0
         if response is not None:
