@@ -1,11 +1,20 @@
 from __future__ import annotations
 
 import json
+import socket
 
 import httpx
 import pytest
 
 from .business_api_action import BusinessActionConfig, BusinessActionConnector
+
+
+@pytest.fixture(autouse=True)
+def _public_dns(monkeypatch):
+    def resolve(host, port, **kwargs):
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", port))]
+
+    monkeypatch.setattr(socket, "getaddrinfo", resolve)
 
 
 def test_action_sends_idempotency_and_auth(monkeypatch):
@@ -36,6 +45,22 @@ def test_action_sends_idempotency_and_auth(monkeypatch):
 def test_action_rejects_unscoped_host():
     with pytest.raises(ValueError, match="allow-listed"):
         BusinessActionConnector(BusinessActionConfig("crm", "https://evil.example", frozenset({"crm.example"})))
+
+
+def test_action_rejects_private_literal_destination():
+    with pytest.raises(ValueError, match="non-public"):
+        BusinessActionConnector(BusinessActionConfig("crm", "http://127.0.0.1", frozenset({"127.0.0.1"})))
+
+
+def test_action_rejects_private_dns_destination(monkeypatch):
+    monkeypatch.setattr(socket, "getaddrinfo", lambda *args, **kwargs: [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("10.0.0.8", 443))])
+    with pytest.raises(ValueError, match="non-public"):
+        BusinessActionConnector(BusinessActionConfig("crm", "https://crm.internal", frozenset({"crm.internal"})))
+
+
+def test_action_allows_private_destination_only_when_explicitly_enabled():
+    connector = BusinessActionConnector(BusinessActionConfig("crm", "https://crm.internal", frozenset({"crm.internal"}), allow_private_ips=True))
+    assert connector.config.allow_private_ips is True
 
 
 def test_action_rejects_credential_bearing_base_url():
