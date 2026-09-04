@@ -25,7 +25,7 @@ def test_oidc_rejects_missing_required_principal_claims(monkeypatch):
         key = "secret"
 
     class FakeClient:
-        def __init__(self, _url):
+        def __init__(self, _url, **_kwargs):
             pass
 
         def get_signing_key_from_jwt(self, _token):
@@ -43,7 +43,7 @@ def test_oidc_maps_verified_claims_to_principal(monkeypatch):
         key = "secret"
 
     class FakeClient:
-        def __init__(self, _url):
+        def __init__(self, _url, **_kwargs):
             pass
 
         def get_signing_key_from_jwt(self, _token):
