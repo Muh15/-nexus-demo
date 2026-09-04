@@ -62,12 +62,17 @@ class SQLiteMissionStore:
     def save(self, mission_id: str, payload: dict[str, Any], updated_at: str, tenant_id: str = DEFAULT_TENANT) -> None:
         serialized = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), default=str)
         with self._lock, self._connect() as connection:
+            existing = connection.execute(
+                "SELECT tenant_id FROM missions WHERE mission_id = ?",
+                (mission_id,),
+            ).fetchone()
+            if existing is not None and existing["tenant_id"] != tenant_id:
+                raise ValueError("Mission tenant cannot be changed after creation.")
             connection.execute(
                 """
                 INSERT INTO missions (mission_id, tenant_id, payload, updated_at)
                 VALUES (?, ?, ?, ?)
                 ON CONFLICT(mission_id) DO UPDATE SET
-                    tenant_id=excluded.tenant_id,
                     payload=excluded.payload,
                     updated_at=excluded.updated_at
                 """,
@@ -89,6 +94,14 @@ class SQLiteMissionStore:
             f"{tenant_id}\n{mission_id}\n{event_json}".encode("utf-8")
         ).hexdigest()
         with self._lock, self._connect() as connection:
+            mission = connection.execute(
+                "SELECT tenant_id FROM missions WHERE mission_id = ?",
+                (mission_id,),
+            ).fetchone()
+            if mission is None:
+                raise ValueError("Cannot append an event for an unknown mission.")
+            if mission["tenant_id"] != tenant_id:
+                raise ValueError("Mission event tenant does not match the mission tenant.")
             cursor = connection.execute(
                 """
                 INSERT OR IGNORE INTO mission_events
