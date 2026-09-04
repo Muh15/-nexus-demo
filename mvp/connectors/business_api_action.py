@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import json
 import os
 import random
+import socket
 import time
 from dataclasses import dataclass
 from urllib.parse import urljoin, urlparse
@@ -24,6 +26,7 @@ class BusinessActionConfig:
     retry_backoff_seconds: float = 0.05
     retry_backoff_max_seconds: float = 2.0
     retry_jitter_ratio: float = 0.25
+    allow_private_ips: bool = False
 
 
 class BusinessActionConnector:
@@ -31,13 +34,7 @@ class BusinessActionConnector:
 
     def __init__(self, config: BusinessActionConfig) -> None:
         self.config = config
-        parsed = urlparse(config.base_url)
-        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
-            raise ValueError("base_url must be an http(s) URL")
-        if parsed.hostname not in config.allowed_hosts:
-            raise ValueError(f"base_url host is not allow-listed: {parsed.hostname}")
-        if parsed.username or parsed.password or parsed.query or parsed.fragment:
-            raise ValueError("base_url must not contain credentials, query parameters, or fragments")
+        self._validate_url(config.base_url, "base_url")
         if config.max_request_bytes <= 0 or config.max_response_bytes <= 0:
             raise ValueError("request/response limits must be positive")
         if config.max_retries < 0 or config.retry_backoff_seconds < 0:
@@ -45,13 +42,52 @@ class BusinessActionConnector:
         if config.retry_backoff_max_seconds <= 0 or config.retry_jitter_ratio < 0:
             raise ValueError("retry backoff/jitter settings are invalid")
 
+    def _validate_url(self, url: str, label: str = "action URL") -> None:
+        parsed = urlparse(url)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            raise ValueError(f"{label} must be an http(s) URL")
+        if parsed.username or parsed.password or parsed.query or parsed.fragment:
+            raise ValueError(f"{label} must not contain credentials, query parameters, or fragments")
+        host = parsed.hostname.lower().rstrip(".")
+        allowed = {item.lower().rstrip(".") for item in self.config.allowed_hosts}
+        if host not in allowed:
+            raise ValueError(f"{label} host is not allow-listed: {parsed.hostname}")
+        try:
+            literal = ipaddress.ip_address(host)
+        except ValueError:
+            literal = None
+        if literal is not None:
+            self._reject_unsafe_ip(literal)
+            return
+        if not self.config.allow_private_ips:
+            try:
+                addresses = {
+                    ipaddress.ip_address(info[4][0])
+                    for info in socket.getaddrinfo(host, parsed.port or (443 if parsed.scheme == "https" else 80), type=socket.SOCK_STREAM)
+                }
+            except socket.gaierror as exc:
+                raise ValueError(f"unable to resolve action host: {host}") from exc
+            if not addresses:
+                raise ValueError(f"action host did not resolve: {host}")
+            for address in addresses:
+                self._reject_unsafe_ip(address)
+
+    def _reject_unsafe_ip(self, address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> None:
+        if self.config.allow_private_ips:
+            return
+        if (
+            address.is_private
+            or address.is_loopback
+            or address.is_link_local
+            or address.is_reserved
+            or address.is_multicast
+            or address.is_unspecified
+        ):
+            raise ValueError("action host resolves to a non-public IP address")
+
     def _url(self, endpoint: str) -> str:
         url = urljoin(self.config.base_url.rstrip("/") + "/", endpoint.lstrip("/"))
-        parsed = urlparse(url)
-        if parsed.scheme not in {"http", "https"} or parsed.hostname not in self.config.allowed_hosts:
-            raise ValueError(f"action host is not allow-listed: {parsed.hostname}")
-        if parsed.username or parsed.password or parsed.query or parsed.fragment:
-            raise ValueError("action URL must not contain credentials, query parameters, or fragments")
+        self._validate_url(url)
         return url
 
     def _retry_delay(self, attempt: int, response: httpx.Response | None = None) -> float:
